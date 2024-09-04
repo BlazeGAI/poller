@@ -1,6 +1,7 @@
 import streamlit as st
 import qrcode
 from io import BytesIO
+from PIL import Image
 
 # Function to generate QR code
 def generate_qr(url):
@@ -19,7 +20,13 @@ def admin_page():
     
     if st.session_state.get('poll_active', False):
         qr = generate_qr("https://poller.streamlit.app/poll")
-        st.image(qr)
+        
+        # Convert PIL Image to bytes
+        buf = BytesIO()
+        qr.save(buf, format="PNG")
+        byte_im = buf.getvalue()
+        
+        st.image(byte_im)
         
         st.write("Responses:")
         for response in st.session_state.responses:
@@ -27,26 +34,3 @@ def admin_page():
         
         if st.button("Close Poll"):
             st.session_state.poll_active = False
-
-# User poll page
-def poll_page():
-    st.title("User Poll")
-    if st.session_state.get('poll_active', False):
-        answer = st.radio("What's your favorite color?", ["Red", "Blue", "Green", "Yellow"])
-        if st.button("Submit"):
-            st.session_state.responses.append(answer)
-            st.success("Response submitted!")
-    else:
-        st.write("Poll Closed")
-
-# Main app logic
-def main():
-    page = st.sidebar.selectbox("Select Page", ["Admin", "Poll"])
-    
-    if page == "Admin":
-        admin_page()
-    else:
-        poll_page()
-
-if __name__ == "__main__":
-    main()
