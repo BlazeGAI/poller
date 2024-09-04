@@ -63,15 +63,18 @@ def admin_page():
     st.code(poll_id)
     st.write("(Use this ID to view results or share with other admins)")
 
-    poll_active = st.checkbox("Poll Active", value=False)
+    poll_active = st.checkbox("Poll Active", value=False, key=f"poll_active_{poll_id}")
 
     if poll_active:
         st.success("Poll is active!")
     else:
         st.warning("Poll is inactive.")
 
-    qr_bytes = get_qr_image_bytes(f"https://poller.streamlit.app/?page=poll&poll_id={poll_id}&poll_active={str(poll_active).lower()}")
+    base_url = "https://poller.streamlit.app"  # Replace with your actual base URL
+    poll_url = f"{base_url}/?page=poll&poll_id={poll_id}"
+    qr_bytes = get_qr_image_bytes(poll_url)
     st.image(qr_bytes, caption="Scan this QR code to access the poll")
+    st.write(f"Poll URL: {poll_url}")
 
     uploaded_file = st.file_uploader("Upload questions file", type="txt")
     if uploaded_file is not None:
@@ -91,13 +94,10 @@ def poll_page():
     
     query_params = st.experimental_get_query_params()
     poll_id = query_params.get('poll_id', [None])[0]
-    poll_active = query_params.get('poll_active', ['false'])[0] == 'true'
     
     if not poll_id:
-        st.error("Invalid poll ID. Please use the provided QR code to access the poll.")
+        st.error("Invalid poll ID. Please use the provided QR code or URL to access the poll.")
         return
-
-    st.write(f"Poll status: {'Active' if poll_active else 'Closed'}")
 
     all_questions = load_data(QUESTIONS_FILE)
     all_responses = load_data(RESPONSES_FILE)
@@ -107,23 +107,18 @@ def poll_page():
     if not questions:
         st.warning("No questions available for this poll.")
     else:
+        st.write(f"Poll ID: {poll_id}")
         user_responses = []
         for i, question in enumerate(questions):
-            answer = st.radio(question, ["Yes", "No", "Maybe"])
+            answer = st.radio(question, ["Yes", "No", "Maybe"], key=f"q_{i}")
             user_responses.append(answer)
 
-        if st.button("Submit", disabled=not poll_active):
-            if poll_active:
-                if poll_id not in all_responses:
-                    all_responses[poll_id] = []
-                all_responses[poll_id].append(user_responses)
-                save_data(all_responses, RESPONSES_FILE)
-                st.success("Thank you for your responses!")
-            else:
-                st.error("Sorry, the poll is currently closed.")
-
-    if not poll_active:
-        st.info("The poll is currently closed. You can view the questions, but you cannot submit responses until the poll is reopened.")
+        if st.button("Submit"):
+            if poll_id not in all_responses:
+                all_responses[poll_id] = []
+            all_responses[poll_id].append(user_responses)
+            save_data(all_responses, RESPONSES_FILE)
+            st.success("Thank you for your responses!")
 
 def results_page():
     st.title("Poll Results")
