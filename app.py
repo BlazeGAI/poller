@@ -56,11 +56,6 @@ def admin_page():
     qr_bytes = get_qr_image_bytes(f"https://poller.streamlit.app/?page=poll&poll_active={'true' if poll_active else 'false'}")
     st.image(qr_bytes, caption="Scan this QR code to access the poll")
 
-    st.write("Responses:")
-    responses = load_responses()
-    for idx, response in enumerate(responses, 1):
-        st.write(f"{idx}. {response}")
-
 def poll_page():
     st.title("User Poll")
     
@@ -85,18 +80,39 @@ def poll_page():
     if not poll_active:
         st.info("The poll is currently closed. You can view the question, but you cannot submit a response until the poll is reopened.")
 
+def results_page():
+    st.title("Poll Results")
+    
+    responses = load_responses()
+    if not responses:
+        st.write("No responses yet.")
+    else:
+        options = ["Red", "Blue", "Green", "Yellow"]
+        counts = {option: responses.count(option) for option in options}
+        
+        st.write("Response Counts:")
+        for option, count in counts.items():
+            st.write(f"{option}: {count}")
+        
+        st.write("\nTotal Responses:", len(responses))
+        
+        # Create a bar chart
+        st.bar_chart(counts)
+
 def main():
     query_params = st.experimental_get_query_params()
     if 'page' in query_params and query_params['page'][0] == 'poll':
         poll_page()
     else:
         st.sidebar.title("Navigation")
-        page = st.sidebar.radio("Select a page", ["Admin", "Poll"])
+        page = st.sidebar.radio("Select a page", ["Admin", "Poll", "Results"])
 
         if page == "Admin":
             admin_page()
         elif page == "Poll":
             poll_page()
+        elif page == "Results":
+            results_page()
 
 if __name__ == "__main__":
     main()
