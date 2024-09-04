@@ -6,11 +6,13 @@ from PIL import Image
 # Use cache_data to share poll status across sessions
 @st.cache_data(experimental_allow_widgets=True)
 def get_poll_status():
-    return {"active": False, "responses": []}
+    if 'poll_status' not in st.session_state:
+        st.session_state.poll_status = {"active": False, "responses": []}
+    return st.session_state.poll_status
 
 def set_poll_status(status):
+    st.session_state.poll_status = status
     get_poll_status.clear()
-    st.cache_data(experimental_allow_widgets=True)(lambda: status)()
 
 def generate_qr(url):
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
@@ -33,14 +35,15 @@ def admin_page():
     if not poll_status["active"]:
         if st.button("Start Poll"):
             poll_status["active"] = True
-            poll_status["responses"] = []
             set_poll_status(poll_status)
             st.success("Poll started!")
+            st.experimental_rerun()
     else:
         if st.button("Close Poll"):
             poll_status["active"] = False
             set_poll_status(poll_status)
             st.success("Poll closed!")
+            st.experimental_rerun()
 
     st.write(f"Poll status: {'Active' if poll_status['active'] else 'Closed'}")
 
