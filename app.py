@@ -2,10 +2,21 @@ import streamlit as st
 import qrcode
 from io import BytesIO
 from PIL import Image
+import json
+import os
 
-# Initialize session state
-if 'responses' not in st.session_state:
-    st.session_state.responses = []
+# File to store responses
+RESPONSES_FILE = "responses.json"
+
+def load_responses():
+    if os.path.exists(RESPONSES_FILE):
+        with open(RESPONSES_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def save_responses(responses):
+    with open(RESPONSES_FILE, "w") as f:
+        json.dump(responses, f)
 
 def generate_qr(url):
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
@@ -25,7 +36,7 @@ def toggle_poll():
     current_params['poll_active'] = ['true' if current_params.get('poll_active', ['false'])[0] == 'false' else 'false']
     st.experimental_set_query_params(**current_params)
     if current_params['poll_active'][0] == 'true':
-        st.session_state.responses = []
+        save_responses([])  # Clear responses when starting a new poll
 
 def admin_page():
     st.title("Admin Page")
@@ -46,7 +57,8 @@ def admin_page():
     st.image(qr_bytes, caption="Scan this QR code to access the poll")
 
     st.write("Responses:")
-    for idx, response in enumerate(st.session_state.responses, 1):
+    responses = load_responses()
+    for idx, response in enumerate(responses, 1):
         st.write(f"{idx}. {response}")
 
 def poll_page():
@@ -63,7 +75,9 @@ def poll_page():
     
     if st.button("Submit", disabled=not poll_active):
         if poll_active:
-            st.session_state.responses.append(answer)
+            responses = load_responses()
+            responses.append(answer)
+            save_responses(responses)
             st.success("Thank you for your response!")
         else:
             st.error("Sorry, the poll is currently closed.")
