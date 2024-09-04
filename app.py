@@ -22,20 +22,20 @@ def get_qr_image_bytes(url):
     qr_img.save(buf, format="PNG")
     return buf.getvalue()
 
+def toggle_poll():
+    st.session_state.poll_active = not st.session_state.poll_active
+    if st.session_state.poll_active:
+        st.session_state.responses = []
+
 def admin_page():
     st.title("Admin Page")
     
-    if not st.session_state.poll_active:
-        if st.button("Start Poll"):
-            st.session_state.poll_active = True
-            st.session_state.responses = []
-            st.success("Poll started!")
-            st.experimental_rerun()
-    else:
-        if st.button("Close Poll"):
-            st.session_state.poll_active = False
+    if st.session_state.poll_active:
+        if st.button("Close Poll", on_click=toggle_poll):
             st.success("Poll closed!")
-            st.experimental_rerun()
+    else:
+        if st.button("Start Poll", on_click=toggle_poll):
+            st.success("Poll started!")
 
     st.write(f"Poll status: {'Active' if st.session_state.poll_active else 'Closed'}")
 
