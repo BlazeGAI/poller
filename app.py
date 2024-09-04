@@ -5,18 +5,19 @@ from PIL import Image
 import json
 import os
 
-# File to store responses
+# Files to store responses and questions
 RESPONSES_FILE = "responses.json"
+QUESTIONS_FILE = "questions.json"
 
-def load_responses():
-    if os.path.exists(RESPONSES_FILE):
-        with open(RESPONSES_FILE, "r") as f:
+def load_data(filename):
+    if os.path.exists(filename):
+        with open(filename, "r") as f:
             return json.load(f)
     return []
 
-def save_responses(responses):
-    with open(RESPONSES_FILE, "w") as f:
-        json.dump(responses, f)
+def save_data(data, filename):
+    with open(filename, "w") as f:
+        json.dump(data, f)
 
 def generate_qr(url):
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
@@ -36,7 +37,7 @@ def toggle_poll():
     current_params['poll_active'] = ['true' if current_params.get('poll_active', ['false'])[0] == 'false' else 'false']
     st.experimental_set_query_params(**current_params)
     if current_params['poll_active'][0] == 'true':
-        save_responses([])  # Clear responses when starting a new poll
+        save_data([], RESPONSES_FILE)  # Clear responses when starting a new poll
 
 def admin_page():
     st.title("Admin Page")
@@ -56,6 +57,19 @@ def admin_page():
     qr_bytes = get_qr_image_bytes(f"https://poller.streamlit.app/?page=poll&poll_active={'true' if poll_active else 'false'}")
     st.image(qr_bytes, caption="Scan this QR code to access the poll")
 
+    # File uploader for questions
+    uploaded_file = st.file_uploader("Upload questions file", type="txt")
+    if uploaded_file is not None:
+        questions = [line.decode("utf-8").strip() for line in uploaded_file.readlines() if line.strip()]
+        save_data(questions, QUESTIONS_FILE)
+        st.success("Questions uploaded successfully!")
+
+    # Display current questions
+    st.write("Current Questions:")
+    questions = load_data(QUESTIONS_FILE)
+    for i, question in enumerate(questions, 1):
+        st.write(f"{i}. {question}")
+
 def poll_page():
     st.title("User Poll")
     
@@ -64,40 +78,52 @@ def poll_page():
     
     st.write(f"Poll status: {'Active' if poll_active else 'Closed'}")
 
-    question = "What's your favorite color?"
-    options = ["Red", "Blue", "Green", "Yellow"]
-    answer = st.radio(question, options)
-    
-    if st.button("Submit", disabled=not poll_active):
-        if poll_active:
-            responses = load_responses()
-            responses.append(answer)
-            save_responses(responses)
-            st.success("Thank you for your response!")
-        else:
-            st.error("Sorry, the poll is currently closed.")
+    questions = load_data(QUESTIONS_FILE)
+    responses = load_data(RESPONSES_FILE)
+
+    if not questions:
+        st.warning("No questions available. Please ask the admin to upload questions.")
+    else:
+        user_responses = []
+        for i, question in enumerate(questions):
+            answer = st.radio(question, ["Yes", "No", "Maybe"])
+            user_responses.append(answer)
+
+        if st.button("Submit", disabled=not poll_active):
+            if poll_active:
+                responses.append(user_responses)
+                save_data(responses, RESPONSES_FILE)
+                st.success("Thank you for your responses!")
+            else:
+                st.error("Sorry, the poll is currently closed.")
 
     if not poll_active:
-        st.info("The poll is currently closed. You can view the question, but you cannot submit a response until the poll is reopened.")
+        st.info("The poll is currently closed. You can view the questions, but you cannot submit responses until the poll is reopened.")
 
 def results_page():
     st.title("Poll Results")
     
-    responses = load_responses()
-    if not responses:
+    questions = load_data(QUESTIONS_FILE)
+    responses = load_data(RESPONSES_FILE)
+
+    if not questions:
+        st.warning("No questions available.")
+    elif not responses:
         st.write("No responses yet.")
     else:
-        options = ["Red", "Blue", "Green", "Yellow"]
-        counts = {option: responses.count(option) for option in options}
-        
-        st.write("Response Counts:")
-        for option, count in counts.items():
-            st.write(f"{option}: {count}")
-        
-        st.write("\nTotal Responses:", len(responses))
-        
-        # Create a bar chart
-        st.bar_chart(counts)
+        for i, question in enumerate(questions):
+            st.write(f"\nQuestion {i+1}: {question}")
+            options = ["Yes", "No", "Maybe"]
+            counts = {option: [r[i] for r in responses].count(option) for option in options}
+            
+            st.write("Response Counts:")
+            for option, count in counts.items():
+                st.write(f"{option}: {count}")
+            
+            # Create a bar chart
+            st.bar_chart(counts)
+
+        st.write(f"\nTotal Responses: {len(responses)}")
 
 def main():
     query_params = st.experimental_get_query_params()
