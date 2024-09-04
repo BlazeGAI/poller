@@ -1,72 +1,52 @@
 import streamlit as st
 import qrcode
 from io import BytesIO
-import pandas as pd
-from PIL import Image
 
-# Function to generate a QR code and return it as an image
-def generate_qr_code(url):
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=4,
-    )
+# Function to generate QR code
+def generate_qr(url):
+    qr = qrcode.QRCode(version=1, box_size=10, border=5)
     qr.add_data(url)
     qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    return img
 
-    img = qr.make_image(fill='black', back_color='white')
-    buf = BytesIO()
-    img.save(buf, format='PNG')  # Save as PNG format
-    buf.seek(0)  # Rewind the buffer
-    return buf
+# Admin page
+def admin_page():
+    st.title("Admin Page")
+    if st.button("Start Poll"):
+        st.session_state.poll_active = True
+        st.session_state.responses = []
+    
+    if st.session_state.get('poll_active', False):
+        qr = generate_qr("https://poller.streamlit.app/poll")
+        st.image(qr)
+        
+        st.write("Responses:")
+        for response in st.session_state.responses:
+            st.write(response)
+        
+        if st.button("Close Poll"):
+            st.session_state.poll_active = False
 
-# Set up Streamlit app
-st.title("Live Polling App")
-
-# Simulate a poll link (replace with actual deployment link)
-poll_link = "https://poller.streamlit.app/"
-
-# Generate and display QR code for poll link
-st.header("Scan this QR code to participate in the poll")
-qr_image = generate_qr_code(poll_link)
-st.image(qr_image, use_column_width=True)  # Pass the BytesIO object directly
-
-# Questions for the poll
-questions = [
-    "What is your favorite color?",
-    "Do you like coffee or tea?"
-]
-
-# Admin control
-if 'responses' not in st.session_state:
-    st.session_state['responses'] = []
-
-if st.button("Start Poll"):
-    st.session_state['poll_started'] = True
-
-if 'poll_started' in st.session_state and st.session_state['poll_started']:
-    question_number = len(st.session_state['responses']) + 1
-
-    if question_number <= len(questions):
-        question = questions[question_number - 1]
-        st.write(f"**Question {question_number}:** {question}")
-
-        # Input for response
-        response = st.text_input("Your Answer:")
-        if st.button("Submit Answer"):
-            st.session_state['responses'].append(response)
-            st.experimental_rerun()
+# User poll page
+def poll_page():
+    st.title("User Poll")
+    if st.session_state.get('poll_active', False):
+        answer = st.radio("What's your favorite color?", ["Red", "Blue", "Green", "Yellow"])
+        if st.button("Submit"):
+            st.session_state.responses.append(answer)
+            st.success("Response submitted!")
     else:
-        st.write("Thank you for participating! The poll is now closed.")
+        st.write("Poll Closed")
 
-# Display live responses for admin
-st.sidebar.header("Admin Panel")
-st.sidebar.write("Live Responses")
-st.sidebar.table(pd.DataFrame(st.session_state['responses'], columns=["Responses"]))
+# Main app logic
+def main():
+    page = st.sidebar.selectbox("Select Page", ["Admin", "Poll"])
+    
+    if page == "Admin":
+        admin_page()
+    else:
+        poll_page()
 
-# Close poll button
-if st.sidebar.button("Close Poll"):
-    st.session_state['poll_started'] = False
-    st.sidebar.write("Poll Closed")
-    st.write("The poll has been closed. Thank you for participating!")
+if __name__ == "__main__":
+    main()
