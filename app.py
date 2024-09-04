@@ -33,7 +33,7 @@ def admin_page():
             st.session_state.poll_active = False
 
     if st.session_state.poll_active:
-        qr_bytes = get_qr_image_bytes("https://poller.streamlit.app/poll")
+        qr_bytes = get_qr_image_bytes("https://poller.streamlit.app/?page=poll")
         st.image(qr_bytes, caption="Scan this QR code to access the poll")
 
         st.write("Responses:")
@@ -55,13 +55,17 @@ def poll_page():
         st.write("The poll is currently closed. Please check back later.")
 
 def main():
-    st.sidebar.title("Navigation")
-    page = st.sidebar.radio("Select a page", ["Admin", "Poll"])
-
-    if page == "Admin":
-        admin_page()
-    elif page == "Poll":
+    query_params = st.experimental_get_query_params()
+    if 'page' in query_params and query_params['page'][0] == 'poll':
         poll_page()
+    else:
+        st.sidebar.title("Navigation")
+        page = st.sidebar.radio("Select a page", ["Admin", "Poll"])
+
+        if page == "Admin":
+            admin_page()
+        elif page == "Poll":
+            poll_page()
 
 if __name__ == "__main__":
     main()
