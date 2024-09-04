@@ -35,35 +35,43 @@ def admin_page():
             poll_status["active"] = True
             poll_status["responses"] = []
             set_poll_status(poll_status)
+            st.success("Poll started!")
     else:
         if st.button("Close Poll"):
             poll_status["active"] = False
             set_poll_status(poll_status)
+            st.success("Poll closed!")
 
-    if poll_status["active"]:
-        qr_bytes = get_qr_image_bytes("https://poller.streamlit.app/?page=poll")
-        st.image(qr_bytes, caption="Scan this QR code to access the poll")
+    st.write(f"Poll status: {'Active' if poll_status['active'] else 'Closed'}")
 
-        st.write("Responses:")
-        for idx, response in enumerate(poll_status["responses"], 1):
-            st.write(f"{idx}. {response}")
+    qr_bytes = get_qr_image_bytes("https://poller.streamlit.app/?page=poll")
+    st.image(qr_bytes, caption="Scan this QR code to access the poll")
+
+    st.write("Responses:")
+    for idx, response in enumerate(poll_status["responses"], 1):
+        st.write(f"{idx}. {response}")
 
 def poll_page():
     st.title("User Poll")
     
     poll_status = get_poll_status()
     
-    if poll_status["active"]:
-        question = "What's your favorite color?"
-        options = ["Red", "Blue", "Green", "Yellow"]
-        answer = st.radio(question, options)
-        
-        if st.button("Submit"):
+    st.write(f"Poll status: {'Active' if poll_status['active'] else 'Closed'}")
+
+    question = "What's your favorite color?"
+    options = ["Red", "Blue", "Green", "Yellow"]
+    answer = st.radio(question, options)
+    
+    if st.button("Submit", disabled=not poll_status["active"]):
+        if poll_status["active"]:
             poll_status["responses"].append(answer)
             set_poll_status(poll_status)
             st.success("Thank you for your response!")
-    else:
-        st.write("The poll is currently closed. Please check back later.")
+        else:
+            st.error("Sorry, the poll is currently closed.")
+
+    if not poll_status["active"]:
+        st.info("The poll is currently closed. You can view the question, but you cannot submit a response until the poll is reopened.")
 
 def main():
     query_params = st.experimental_get_query_params()
