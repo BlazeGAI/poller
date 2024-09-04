@@ -33,7 +33,7 @@ def admin_page():
             st.session_state.poll_active = False
 
     if st.session_state.poll_active:
-        qr_bytes = get_qr_image_bytes("https://your-streamlit-app-url/poll")
+        qr_bytes = get_qr_image_bytes("https://poller.streamlit.app/poll")
         st.image(qr_bytes, caption="Scan this QR code to access the poll")
 
         st.write("Responses:")
