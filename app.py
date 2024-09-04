@@ -18,7 +18,8 @@ def load_data(filename):
         try:
             if os.path.exists(filename):
                 with open(filename, "r") as f:
-                    return json.load(f)
+                    data = json.load(f)
+                    return data if isinstance(data, dict) else {}
             return {}  # Return an empty dict if file doesn't exist
         except json.JSONDecodeError:
             time.sleep(0.1)  # Wait a bit before trying again
@@ -114,12 +115,13 @@ def poll_page():
             user_responses.append(answer)
 
         if st.button("Submit"):
-            new_responses = dict(all_responses)  # Create a copy of the responses
+            new_responses = all_responses if isinstance(all_responses, dict) else {}
             if poll_id not in new_responses:
                 new_responses[poll_id] = []
             new_responses[poll_id].append(user_responses)
             save_data(new_responses, RESPONSES_FILE)
             st.success("Thank you for your responses!")
+
 def results_page():
     st.title("Poll Results")
     
