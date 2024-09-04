@@ -18,7 +18,7 @@ def admin_page():
         st.session_state.responses = []
     
     if st.session_state.get('poll_active', False):
-        qr = generate_qr("https://your-streamlit-app-url/poll")
+        qr = generate_qr("https://poller.streamlit.app/poll")
         st.image(qr)
         
         st.write("Responses:")
