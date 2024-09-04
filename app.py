@@ -114,12 +114,12 @@ def poll_page():
             user_responses.append(answer)
 
         if st.button("Submit"):
-            if poll_id not in all_responses:
-                all_responses[poll_id] = []
-            all_responses[poll_id].append(user_responses)
-            save_data(all_responses, RESPONSES_FILE)
+            new_responses = dict(all_responses)  # Create a copy of the responses
+            if poll_id not in new_responses:
+                new_responses[poll_id] = []
+            new_responses[poll_id].append(user_responses)
+            save_data(new_responses, RESPONSES_FILE)
             st.success("Thank you for your responses!")
-
 def results_page():
     st.title("Poll Results")
     
