@@ -19,7 +19,7 @@ def load_data(filename):
             if os.path.exists(filename):
                 with open(filename, "r") as f:
                     return json.load(f)
-            return {}
+            return {}  # Return an empty dict if file doesn't exist
         except json.JSONDecodeError:
             time.sleep(0.1)  # Wait a bit before trying again
     return {}  # If still fails after 5 attempts, return empty dict
@@ -99,8 +99,10 @@ def poll_page():
 
     st.write(f"Poll status: {'Active' if poll_active else 'Closed'}")
 
-    questions = load_data(QUESTIONS_FILE).get(poll_id, [])
+    all_questions = load_data(QUESTIONS_FILE)
     all_responses = load_data(RESPONSES_FILE)
+    
+    questions = all_questions.get(poll_id, [])
 
     if not questions:
         st.warning("No questions available for this poll.")
@@ -130,8 +132,11 @@ def results_page():
     poll_id = st.text_input("Enter Poll ID", value=default_poll_id)
     
     if poll_id:
-        questions = load_data(QUESTIONS_FILE).get(poll_id, [])
-        responses = load_data(RESPONSES_FILE).get(poll_id, [])
+        all_questions = load_data(QUESTIONS_FILE)
+        all_responses = load_data(RESPONSES_FILE)
+        
+        questions = all_questions.get(poll_id, [])
+        responses = all_responses.get(poll_id, [])
 
         if not questions:
             st.warning("No questions available for this poll.")
