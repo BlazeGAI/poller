@@ -8,20 +8,21 @@ import time
 import random
 import string
 
-# Files to store responses and questions
+# File paths
 RESPONSES_FILE = "responses.json"
 QUESTIONS_FILE = "questions.json"
 
+# Helper functions
 def load_data(filename):
     for _ in range(5):  # Try up to 5 times
         try:
             if os.path.exists(filename):
                 with open(filename, "r") as f:
                     return json.load(f)
-            return []
+            return {}
         except json.JSONDecodeError:
             time.sleep(0.1)  # Wait a bit before trying again
-    return []  # If still fails after 5 attempts, return empty list
+    return {}  # If still fails after 5 attempts, return empty dict
 
 def save_data(data, filename):
     for _ in range(5):  # Try up to 5 times
@@ -49,6 +50,7 @@ def get_qr_image_bytes(url):
 def generate_poll_id():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
+# Page functions
 def admin_page():
     st.title("Admin Page")
     
@@ -57,6 +59,10 @@ def admin_page():
 
     poll_id = st.session_state.poll_id
     
+    st.write("Your Poll ID is:")
+    st.code(poll_id)
+    st.write("(Use this ID to view results or share with other admins)")
+
     poll_active = st.checkbox("Poll Active", value=False)
 
     if poll_active:
@@ -67,14 +73,14 @@ def admin_page():
     qr_bytes = get_qr_image_bytes(f"https://poller.streamlit.app/?page=poll&poll_id={poll_id}&poll_active={str(poll_active).lower()}")
     st.image(qr_bytes, caption="Scan this QR code to access the poll")
 
-    # File uploader for questions
     uploaded_file = st.file_uploader("Upload questions file", type="txt")
     if uploaded_file is not None:
         questions = [line.decode("utf-8").strip() for line in uploaded_file.readlines() if line.strip()]
-        save_data({poll_id: questions}, QUESTIONS_FILE)
+        all_questions = load_data(QUESTIONS_FILE)
+        all_questions[poll_id] = questions
+        save_data(all_questions, QUESTIONS_FILE)
         st.success("Questions uploaded successfully!")
 
-    # Display current questions
     st.write("Current Questions:")
     questions = load_data(QUESTIONS_FILE).get(poll_id, [])
     for i, question in enumerate(questions, 1):
@@ -94,7 +100,7 @@ def poll_page():
     st.write(f"Poll status: {'Active' if poll_active else 'Closed'}")
 
     questions = load_data(QUESTIONS_FILE).get(poll_id, [])
-    responses = load_data(RESPONSES_FILE)
+    all_responses = load_data(RESPONSES_FILE)
 
     if not questions:
         st.warning("No questions available for this poll.")
@@ -106,10 +112,10 @@ def poll_page():
 
         if st.button("Submit", disabled=not poll_active):
             if poll_active:
-                if poll_id not in responses:
-                    responses[poll_id] = []
-                responses[poll_id].append(user_responses)
-                save_data(responses, RESPONSES_FILE)
+                if poll_id not in all_responses:
+                    all_responses[poll_id] = []
+                all_responses[poll_id].append(user_responses)
+                save_data(all_responses, RESPONSES_FILE)
                 st.success("Thank you for your responses!")
             else:
                 st.error("Sorry, the poll is currently closed.")
@@ -120,7 +126,9 @@ def poll_page():
 def results_page():
     st.title("Poll Results")
     
-    poll_id = st.text_input("Enter Poll ID")
+    default_poll_id = st.session_state.get('poll_id', "")
+    poll_id = st.text_input("Enter Poll ID", value=default_poll_id)
+    
     if poll_id:
         questions = load_data(QUESTIONS_FILE).get(poll_id, [])
         responses = load_data(RESPONSES_FILE).get(poll_id, [])
@@ -139,11 +147,11 @@ def results_page():
                 for option, count in counts.items():
                     st.write(f"{option}: {count}")
                 
-                # Create a bar chart
                 st.bar_chart(counts)
 
             st.write(f"\nTotal Responses: {len(responses)}")
 
+# Main app
 def main():
     query_params = st.experimental_get_query_params()
     if 'page' in query_params and query_params['page'][0] == 'poll':
