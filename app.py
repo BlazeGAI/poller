@@ -3,14 +3,14 @@ import qrcode
 from io import BytesIO
 from PIL import Image
 
-# Use experimental_memo to share poll status across sessions
-@st.experimental_memo
+# Use cache_data to share poll status across sessions
+@st.cache_data(experimental_allow_widgets=True)
 def get_poll_status():
     return {"active": False, "responses": []}
 
 def set_poll_status(status):
-    st.experimental_memo.clear()
-    get_poll_status.set(status)
+    get_poll_status.clear()
+    st.cache_data(experimental_allow_widgets=True)(lambda: status)()
 
 def generate_qr(url):
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
