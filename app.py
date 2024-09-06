@@ -9,10 +9,11 @@ import random
 import string
 import pandas as pd
 from supabase import create_client, Client
+from supabase.exceptions import APIError
 
 # Supabase credentials
-SUPABASE_URL = "https://czivxiadenrdpxebnqpu.supabase.co"  # Replace with your Supabase URL
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6aXZ4aWFkZW5yZHB4ZWJucXB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU1NjgxOTQsImV4cCI6MjA0MTE0NDE5NH0.i_xLmpxQlUfHGq_Hs9DzvaQPWciGD_FZuxAEo0caAvM"  # Replace with your Supabase Key
+SUPABASE_URL = "https://czivxiadenrdpxebnqpu.supabase.co"  # Replace with your actual Supabase URL
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6aXZ4aWFkZW5yZHB4ZWJucXB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU1NjgxOTQsImV4cCI6MjA0MTE0NDE5NH0.i_xLmpxQlUfHGq_Hs9DzvaQPWciGD_FZuxAEo0caAvM"  # Replace with your actual Supabase Key
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Helper functions
@@ -47,25 +48,28 @@ def admin_page():
     st.write("(Use this ID to view results or share with other admins)")
     
     # Check if poll exists in Supabase
-    poll_data = supabase.table("polls").select("*").eq("id", poll_id).execute()
-    poll_active = False
-    questions = []
-    if poll_data.data:
-        poll_active = poll_data.data[0]["active"]
-        questions = poll_data.data[0]["questions"]
+    try:
+        poll_data = supabase.table("polls").select("*").eq("id", poll_id).execute()
+        poll_active = False
+        questions = []
+        if poll_data.data:
+            poll_active = poll_data.data[0]["active"]
+            questions = poll_data.data[0]["questions"]
 
-    poll_active = st.checkbox("Poll Active", value=poll_active, key=f"poll_active_{poll_id}")
+        poll_active = st.checkbox("Poll Active", value=poll_active, key=f"poll_active_{poll_id}")
 
-    if poll_active:
-        st.success("Poll is active!")
-    else:
-        st.warning("Poll is inactive.")
+        if poll_active:
+            st.success("Poll is active!")
+        else:
+            st.warning("Poll is inactive.")
 
-    # Save poll status to Supabase
-    if poll_data.data:
-        supabase.table("polls").update({"active": poll_active}).eq("id", poll_id).execute()
-    else:
-        supabase.table("polls").insert({"id": poll_id, "questions": questions, "active": poll_active}).execute()
+        # Save poll status to Supabase
+        if poll_data.data:
+            supabase.table("polls").update({"active": poll_active}).eq("id", poll_id).execute()
+        else:
+            supabase.table("polls").insert({"id": poll_id, "questions": questions, "active": poll_active}).execute()
+    except APIError as e:
+        st.error(f"Error querying Supabase: {e}")
 
     base_url = "https://poller.streamlit.app"  # Replace with your actual base URL
     poll_url = f"{base_url}/?page=poll&poll_id={poll_id}"
@@ -138,7 +142,12 @@ def poll_page():
         
         user_responses = []
         for i, question in enumerate(questions):
-            q_type, q_text = question.split(":", 1)
+            try:
+                q_type, q_text = question.split(":", 1)
+            except ValueError:
+                st.error(f"Invalid question format: {question}")
+                continue
+            
             if q_type == "text":
                 answer = st.text_input(q_text, key=f"q_{i}")
             elif q_type == "textarea":
