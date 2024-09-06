@@ -9,7 +9,6 @@ import random
 import string
 import pandas as pd
 from supabase import create_client, Client
-from supabase.exceptions import APIError
 
 # Supabase credentials
 SUPABASE_URL = "https://czivxiadenrdpxebnqpu.supabase.co"  # Replace with your actual Supabase URL
@@ -68,7 +67,7 @@ def admin_page():
             supabase.table("polls").update({"active": poll_active}).eq("id", poll_id).execute()
         else:
             supabase.table("polls").insert({"id": poll_id, "questions": questions, "active": poll_active}).execute()
-    except APIError as e:
+    except Exception as e:
         st.error(f"Error querying Supabase: {e}")
 
     base_url = "https://poller.streamlit.app"  # Replace with your actual base URL
