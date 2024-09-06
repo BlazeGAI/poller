@@ -57,11 +57,11 @@ def generate_poll_id():
 def admin_page():
     st.title("Admin Page")
     
-    # Input field to enter an existing poll ID
-    existing_poll_id = st.text_input("Enter Poll ID to Load Existing Poll")
+    # Input field to enter a custom Poll ID
+    custom_poll_id = st.text_input("Enter Custom Poll ID")
     
-    if existing_poll_id:
-        st.session_state.poll_id = existing_poll_id
+    if custom_poll_id:
+        st.session_state.poll_id = custom_poll_id
     elif 'poll_id' not in st.session_state:
         st.session_state.poll_id = generate_poll_id()
 
@@ -201,7 +201,7 @@ def poll_page():
             new_responses[poll_id].append({"id": response_id, "name": name, "email": email, "responses": user_responses})
             save_data(new_responses, RESPONSES_FILE)
             st.success("Thank you for your responses!")
-
+            
 def results_page():
     st.title("Poll Results")
     
