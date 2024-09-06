@@ -57,7 +57,12 @@ def generate_poll_id():
 def admin_page():
     st.title("Admin Page")
     
-    if 'poll_id' not in st.session_state:
+    # Input field to enter an existing poll ID
+    existing_poll_id = st.text_input("Enter Poll ID to Load Existing Poll")
+    
+    if existing_poll_id:
+        st.session_state.poll_id = existing_poll_id
+    elif 'poll_id' not in st.session_state:
         st.session_state.poll_id = generate_poll_id()
 
     poll_id = st.session_state.poll_id
