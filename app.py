@@ -12,6 +12,7 @@ import pandas as pd
 # File paths
 RESPONSES_FILE = "responses.json"
 QUESTIONS_FILE = "questions.json"
+POLL_STATUS_FILE = "poll_status.json"
 
 # Helper functions
 def load_data(filename):
@@ -36,23 +37,6 @@ def save_data(data, filename):
             time.sleep(0.1)  # Wait a bit before trying again
     st.error("Failed to save data. Please try again.")
 
-def generate_qr(url):
-    qr = qrcode.QRCode(version=1, box_size=10, border=5)
-    qr.add_data(url)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-    return img
-
-def get_qr_image_bytes(url):
-    qr_img = generate_qr(url)
-    buf = BytesIO()
-    qr_img.save(buf, format="PNG")
-    return buf.getvalue()
-
-def generate_poll_id():
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-
-# Page functions
 def admin_page():
     st.title("Admin Page")
     
@@ -65,12 +49,18 @@ def admin_page():
     st.code(poll_id)
     st.write("(Use this ID to view results or share with other admins)")
 
-    poll_active = st.checkbox("Poll Active", value=False, key=f"poll_active_{poll_id}")
+    poll_status = load_data(POLL_STATUS_FILE)
+    poll_active = poll_status.get(poll_id, False)
+
+    poll_active = st.checkbox("Poll Active", value=poll_active, key=f"poll_active_{poll_id}")
 
     if poll_active:
         st.success("Poll is active!")
     else:
         st.warning("Poll is inactive.")
+
+    poll_status[poll_id] = poll_active
+    save_data(poll_status, POLL_STATUS_FILE)
 
     base_url = "https://poller.streamlit.app"  # Replace with your actual base URL
     poll_url = f"{base_url}/?page=poll&poll_id={poll_id}"
@@ -129,6 +119,11 @@ def poll_page():
         st.error("Invalid poll ID. Please use the provided QR code or URL to access the poll.")
         return
 
+    poll_status = load_data(POLL_STATUS_FILE)
+    if not poll_status.get(poll_id, False):
+        st.error("This poll is not active.")
+        return
+
     all_questions = load_data(QUESTIONS_FILE)
     all_responses = load_data(RESPONSES_FILE)
     
@@ -138,7 +133,6 @@ def poll_page():
         st.warning("No questions available for this poll.")
     else:
         st.write(f"Poll ID: {poll_id}")
-        
         name = st.text_input("Name")
         email = st.text_input("Email")
         
