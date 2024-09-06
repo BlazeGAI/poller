@@ -103,6 +103,34 @@ def admin_page():
     for i, question in enumerate(questions, 1):
         st.write(f"{i}. {question}")
 
+    if st.button("Download Responses as Excel"):
+        all_responses = load_data(RESPONSES_FILE)
+        responses = all_responses.get(poll_id, [])
+        
+        if not responses:
+            st.warning("No responses available for this poll.")
+        else:
+            # Create DataFrame with appropriate headers
+            headers = ["id", "name", "email"] + [f"q_{i+1}" for i in range(len(questions))]
+            data = []
+            for response in responses:
+                row = [response["id"], response["name"], response["email"]] + response["responses"]
+                data.append(row)
+            
+            df = pd.DataFrame(data, columns=headers)
+            st.write(df)
+            
+            excel_file = BytesIO()
+            with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Responses')
+            
+            st.download_button(
+                label="Download Excel file",
+                data=excel_file.getvalue(),
+                file_name="responses.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
 def poll_page():
     st.title("User Poll")
     
