@@ -162,7 +162,31 @@ def poll_page():
         
         user_responses = []
         for i, question in enumerate(questions):
-            answer = st.radio(question, ["Yes", "No", "Maybe"], key=f"q_{i}")
+            q_type, q_text = question.split(":", 1)
+            if q_type == "text":
+                answer = st.text_input(q_text, key=f"q_{i}")
+            elif q_type == "textarea":
+                answer = st.text_area(q_text, key=f"q_{i}")
+            elif q_type == "select":
+                options = q_text.split(":")[1].split(",")
+                answer = st.selectbox(q_text.split(":")[0], options, key=f"q_{i}")
+            elif q_type == "multiselect":
+                options = q_text.split(":")[1].split(",")
+                answer = st.multiselect(q_text.split(":")[0], options, key=f"q_{i}")
+            elif q_type == "slider":
+                min_val, max_val, step = map(int, q_text.split(":")[1].split(","))
+                answer = st.slider(q_text.split(":")[0], min_val, max_val, step, key=f"q_{i}")
+            elif q_type == "number":
+                answer = st.number_input(q_text, key=f"q_{i}")
+            elif q_type == "date":
+                answer = st.date_input(q_text, key=f"q_{i}")
+            elif q_type == "time":
+                answer = st.time_input(q_text, key=f"q_{i}")
+            elif q_type == "file":
+                answer = st.file_uploader(q_text, key=f"q_{i}")
+            else:
+                st.error(f"Unknown question type: {q_type}")
+                continue
             user_responses.append(answer)
 
         if st.button("Submit"):
