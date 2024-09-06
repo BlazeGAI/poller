@@ -53,6 +53,8 @@ def generate_poll_id():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
 # Page functions
+import pandas as pd
+
 def admin_page():
     st.title("Admin Page")
     
@@ -98,8 +100,14 @@ def admin_page():
         if not responses:
             st.warning("No responses available for this poll.")
         else:
-            df = pd.DataFrame(responses)
-            df['responses'] = df['responses'].apply(lambda x: ', '.join(x))
+            # Create DataFrame with appropriate headers
+            headers = ["id", "name", "email"] + [f"q_{i+1}" for i in range(len(questions))]
+            data = []
+            for response in responses:
+                row = [response["id"], response["name"], response["email"]] + response["responses"]
+                data.append(row)
+            
+            df = pd.DataFrame(data, columns=headers)
             st.write(df)
             
             excel_file = BytesIO()
@@ -113,7 +121,7 @@ def admin_page():
                 file_name="responses.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-
+            
 def poll_page():
     st.title("User Poll")
     
@@ -150,10 +158,11 @@ def poll_page():
             new_responses = all_responses if isinstance(all_responses, dict) else {}
             if poll_id not in new_responses:
                 new_responses[poll_id] = []
-            new_responses[poll_id].append({"name": name, "email": email, "responses": user_responses})
+            response_id = len(new_responses[poll_id]) + 1
+            new_responses[poll_id].append({"id": response_id, "name": name, "email": email, "responses": user_responses})
             save_data(new_responses, RESPONSES_FILE)
             st.success("Thank you for your responses!")
-
+            
 def results_page():
     st.title("Poll Results")
     
