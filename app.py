@@ -55,6 +55,8 @@ def generate_poll_id():
 # Page functions
 import pandas as pd
 
+import pandas as pd
+
 def admin_page():
     st.title("Admin Page")
     
@@ -111,7 +113,7 @@ def admin_page():
             st.write(df)
             
             excel_file = BytesIO()
-            with pd.ExcelWriter(excel_file, engine='xlsxwriter') as writer:
+            with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
                 df.to_excel(writer, index=False, sheet_name='Responses')
                 writer.save()
             
