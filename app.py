@@ -184,7 +184,7 @@ def results_page():
             for i, question in enumerate(questions):
                 st.write(f"\nQuestion {i+1}: {question}")
                 options = ["Yes", "No", "Maybe"]
-                counts = {option: [r[i] for r in responses].count(option) for option in options}
+                counts = {option: sum(1 for r in responses if r["responses"][i] == option) for option in options}
                 
                 st.write("Response Counts:")
                 for option, count in counts.items():
