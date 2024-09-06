@@ -7,6 +7,7 @@ import os
 import time
 import random
 import string
+import pandas as pd
 
 # File paths
 RESPONSES_FILE = "responses.json"
@@ -90,6 +91,29 @@ def admin_page():
     for i, question in enumerate(questions, 1):
         st.write(f"{i}. {question}")
 
+    if st.button("Download Responses as Excel"):
+        all_responses = load_data(RESPONSES_FILE)
+        responses = all_responses.get(poll_id, [])
+        
+        if not responses:
+            st.warning("No responses available for this poll.")
+        else:
+            df = pd.DataFrame(responses)
+            df['responses'] = df['responses'].apply(lambda x: ', '.join(x))
+            st.write(df)
+            
+            excel_file = BytesIO()
+            with pd.ExcelWriter(excel_file, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False, sheet_name='Responses')
+                writer.save()
+            
+            st.download_button(
+                label="Download Excel file",
+                data=excel_file.getvalue(),
+                file_name="responses.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
 def poll_page():
     st.title("User Poll")
     
@@ -109,16 +133,24 @@ def poll_page():
         st.warning("No questions available for this poll.")
     else:
         st.write(f"Poll ID: {poll_id}")
+        
+        name = st.text_input("Name")
+        email = st.text_input("Email")
+        
         user_responses = []
         for i, question in enumerate(questions):
             answer = st.radio(question, ["Yes", "No", "Maybe"], key=f"q_{i}")
             user_responses.append(answer)
 
         if st.button("Submit"):
+            if not name or not email:
+                st.error("Please enter your name and email.")
+                return
+
             new_responses = all_responses if isinstance(all_responses, dict) else {}
             if poll_id not in new_responses:
                 new_responses[poll_id] = []
-            new_responses[poll_id].append(user_responses)
+            new_responses[poll_id].append({"name": name, "email": email, "responses": user_responses})
             save_data(new_responses, RESPONSES_FILE)
             st.success("Thank you for your responses!")
 
