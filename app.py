@@ -37,6 +37,23 @@ def save_data(data, filename):
             time.sleep(0.1)  # Wait a bit before trying again
     st.error("Failed to save data. Please try again.")
 
+def generate_qr(url):
+    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+    qr.add_data(url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    return img
+
+def get_qr_image_bytes(url):
+    qr_img = generate_qr(url)
+    buf = BytesIO()
+    qr_img.save(buf, format="PNG")
+    return buf.getvalue()
+
+def generate_poll_id():
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+# Page functions
 def admin_page():
     st.title("Admin Page")
     
@@ -81,34 +98,6 @@ def admin_page():
     for i, question in enumerate(questions, 1):
         st.write(f"{i}. {question}")
 
-    if st.button("Download Responses as Excel"):
-        all_responses = load_data(RESPONSES_FILE)
-        responses = all_responses.get(poll_id, [])
-        
-        if not responses:
-            st.warning("No responses available for this poll.")
-        else:
-            # Create DataFrame with appropriate headers
-            headers = ["id", "name", "email"] + [f"q_{i+1}" for i in range(len(questions))]
-            data = []
-            for response in responses:
-                row = [response["id"], response["name"], response["email"]] + response["responses"]
-                data.append(row)
-            
-            df = pd.DataFrame(data, columns=headers)
-            st.write(df)
-            
-            excel_file = BytesIO()
-            with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name='Responses')
-            
-            st.download_button(
-                label="Download Excel file",
-                data=excel_file.getvalue(),
-                file_name="responses.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-            
 def poll_page():
     st.title("User Poll")
     
@@ -153,7 +142,7 @@ def poll_page():
             new_responses[poll_id].append({"id": response_id, "name": name, "email": email, "responses": user_responses})
             save_data(new_responses, RESPONSES_FILE)
             st.success("Thank you for your responses!")
-            
+
 def results_page():
     st.title("Poll Results")
     
@@ -175,7 +164,7 @@ def results_page():
             for i, question in enumerate(questions):
                 st.write(f"\nQuestion {i+1}: {question}")
                 options = ["Yes", "No", "Maybe"]
-                counts = {option: sum(1 for r in responses if r["responses"][i] == option) for option in options}
+                counts = {option: [r[i] for r in responses].count(option) for option in options}
                 
                 st.write("Response Counts:")
                 for option, count in counts.items():
