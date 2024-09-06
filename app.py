@@ -105,8 +105,10 @@ def poll_page():
     poll_id = query_params.get('poll_id', [None])[0]
     
     if not poll_id:
-        st.error("Invalid poll ID. Please use the provided QR code or URL to access the poll.")
-        return
+        poll_id = st.text_input("Enter Poll ID")
+        if not poll_id:
+            st.error("Invalid poll ID. Please use the provided QR code or URL to access the poll.")
+            return
 
     poll_status = load_data(POLL_STATUS_FILE)
     if not poll_status.get(poll_id, False):
