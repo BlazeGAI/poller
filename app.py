@@ -8,46 +8,21 @@ import time
 import random
 import string
 import pandas as pd
+from supabase import create_client, Client
 
-# File paths
-RESPONSES_FILE = "responses.json"
-QUESTIONS_FILE = "questions.json"
-POLL_STATUS_FILE = "poll_status.json"
+# Supabase credentials
+SUPABASE_URL = "https://czivxiadenrdpxebnqpu.supabase.co"  # Replace with your Supabase URL
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6aXZ4aWFkZW5yZHB4ZWJucXB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU1NjgxOTQsImV4cCI6MjA0MTE0NDE5NH0.i_xLmpxQlUfHGq_Hs9DzvaQPWciGD_FZuxAEo0caAvM"  # Replace with your Supabase Key
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Helper functions
-def load_data(filename):
-    for _ in range(5):  # Try up to 5 times
-        try:
-            if os.path.exists(filename):
-                with open(filename, "r") as f:
-                    data = json.load(f)
-                    return data if isinstance(data, dict) else {}
-            return {}  # Return an empty dict if file doesn't exist
-        except json.JSONDecodeError:
-            time.sleep(0.1)  # Wait a bit before trying again
-    return {}  # If still fails after 5 attempts, return empty dict
-
-def save_data(data, filename):
-    for _ in range(5):  # Try up to 5 times
-        try:
-            with open(filename, "w") as f:
-                json.dump(data, f)
-            return
-        except:
-            time.sleep(0.1)  # Wait a bit before trying again
-    st.error("Failed to save data. Please try again.")
-
-def generate_qr(url):
+def get_qr_image_bytes(url):
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
     qr.add_data(url)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
-    return img
-
-def get_qr_image_bytes(url):
-    qr_img = generate_qr(url)
     buf = BytesIO()
-    qr_img.save(buf, format="PNG")
+    img.save(buf, format="PNG")
     return buf.getvalue()
 
 def generate_poll_id():
@@ -70,9 +45,14 @@ def admin_page():
     st.write("Your Poll ID is:")
     st.code(poll_id)
     st.write("(Use this ID to view results or share with other admins)")
-
-    poll_status = load_data(POLL_STATUS_FILE)
-    poll_active = poll_status.get(poll_id, False)
+    
+    # Check if poll exists in Supabase
+    poll_data = supabase.table("polls").select("*").eq("id", poll_id).execute()
+    poll_active = False
+    questions = []
+    if poll_data.data:
+        poll_active = poll_data.data[0]["active"]
+        questions = poll_data.data[0]["questions"]
 
     poll_active = st.checkbox("Poll Active", value=poll_active, key=f"poll_active_{poll_id}")
 
@@ -81,8 +61,11 @@ def admin_page():
     else:
         st.warning("Poll is inactive.")
 
-    poll_status[poll_id] = poll_active
-    save_data(poll_status, POLL_STATUS_FILE)
+    # Save poll status to Supabase
+    if poll_data.data:
+        supabase.table("polls").update({"active": poll_active}).eq("id", poll_id).execute()
+    else:
+        supabase.table("polls").insert({"id": poll_id, "questions": questions, "active": poll_active}).execute()
 
     base_url = "https://poller.streamlit.app"  # Replace with your actual base URL
     poll_url = f"{base_url}/?page=poll&poll_id={poll_id}"
@@ -93,24 +76,20 @@ def admin_page():
     uploaded_file = st.file_uploader("Upload questions file", type="txt")
     if uploaded_file is not None:
         questions = [line.decode("utf-8").strip() for line in uploaded_file.readlines() if line.strip()]
-        all_questions = load_data(QUESTIONS_FILE)
-        all_questions[poll_id] = questions
-        save_data(all_questions, QUESTIONS_FILE)
+        supabase.table("polls").update({"questions": questions}).eq("id", poll_id).execute()
         st.success("Questions uploaded successfully!")
 
     st.write("Current Questions:")
-    questions = load_data(QUESTIONS_FILE).get(poll_id, [])
     for i, question in enumerate(questions, 1):
         st.write(f"{i}. {question}")
 
     if st.button("Download Responses as Excel"):
-        all_responses = load_data(RESPONSES_FILE)
-        responses = all_responses.get(poll_id, [])
+        responses_data = supabase.table("responses").select("*").eq("poll_id", poll_id).execute()
+        responses = responses_data.data
         
         if not responses:
             st.warning("No responses available for this poll.")
         else:
-            # Create DataFrame with appropriate headers
             headers = ["id", "name", "email"] + [f"q_{i+1}" for i in range(len(questions))]
             data = []
             for response in responses:
@@ -143,15 +122,12 @@ def poll_page():
             st.error("Invalid poll ID. Please use the provided QR code or URL to access the poll.")
             return
 
-    poll_status = load_data(POLL_STATUS_FILE)
-    if not poll_status.get(poll_id, False):
-        st.error("This poll is not active.")
+    poll_data = supabase.table("polls").select("*").eq("id", poll_id).execute()
+    if not poll_data.data or not poll_data.data[0]["active"]:
+        st.error("This poll is not active or does not exist.")
         return
 
-    all_questions = load_data(QUESTIONS_FILE)
-    all_responses = load_data(RESPONSES_FILE)
-    
-    questions = all_questions.get(poll_id, [])
+    questions = poll_data.data[0]["questions"]
 
     if not questions:
         st.warning("No questions available for this poll.")
@@ -194,14 +170,14 @@ def poll_page():
                 st.error("Please enter your name and email.")
                 return
 
-            new_responses = all_responses if isinstance(all_responses, dict) else {}
-            if poll_id not in new_responses:
-                new_responses[poll_id] = []
-            response_id = len(new_responses[poll_id]) + 1
-            new_responses[poll_id].append({"id": response_id, "name": name, "email": email, "responses": user_responses})
-            save_data(new_responses, RESPONSES_FILE)
+            supabase.table("responses").insert({
+                "poll_id": poll_id,
+                "name": name,
+                "email": email,
+                "responses": user_responses
+            }).execute()
             st.success("Thank you for your responses!")
-            
+
 def results_page():
     st.title("Poll Results")
     
@@ -209,11 +185,11 @@ def results_page():
     poll_id = st.text_input("Enter Poll ID", value=default_poll_id)
     
     if poll_id:
-        all_questions = load_data(QUESTIONS_FILE)
-        all_responses = load_data(RESPONSES_FILE)
+        all_questions = supabase.table("polls").select("questions").eq("id", poll_id).execute()
+        all_responses = supabase.table("responses").select("*").eq("poll_id", poll_id).execute()
         
-        questions = all_questions.get(poll_id, [])
-        responses = all_responses.get(poll_id, [])
+        questions = all_questions.data[0]["questions"] if all_questions.data else []
+        responses = all_responses.data
 
         if not questions:
             st.warning("No questions available for this poll.")
