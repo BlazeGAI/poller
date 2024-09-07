@@ -11,6 +11,7 @@ import pandas as pd
 from supabase import create_client, Client
 import zipfile
 from datetime import datetime
+import requests
 
 # Supabase credentials
 SUPABASE_URL = "https://czivxiadenrdpxebnqpu.supabase.co"  # Replace with your actual Supabase URL
@@ -342,13 +343,20 @@ def create_zip_of_uploaded_files(poll_id):
                     original_filename = answer['filename']
                     file_name = f"{response['name']}_{i+1}_{original_filename}"
                     
-                    # Download the file from Supabase
+                    # Get the public URL of the file
                     storage_client = supabase.storage
                     bucket = storage_client.from_('poll_files')
-                    file_data = bucket.download(file_url.split('/')[-1])
+                    public_url = bucket.get_public_url(file_url.split('/')[-1])
                     
-                    # Add file to zip
-                    zipf.writestr(file_name, file_data)
+                    # Download the file content using requests
+                    file_response = requests.get(public_url)
+                    if file_response.status_code == 200:
+                        file_data = file_response.content
+                        
+                        # Add file to zip
+                        zipf.writestr(file_name, file_data)
+                    else:
+                        st.warning(f"Failed to download file: {original_filename}")
     
     return zip_filename
 
