@@ -32,6 +32,21 @@ def generate_poll_id():
 def admin_page():
     st.title("Admin Page")
     
+    # Add a small logo to the upper-right corner using HTML/CSS
+    st.markdown(
+        """
+        <style>
+        [data-testid="stHeader"] {
+            display: flex;
+            justify-content: space-between;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    st.image("https://tuonlineresources.com/apps/poller/images/logo-icon.png", width=50)  # Small logo in upper-right corner
+    
     # Input field to enter a custom Poll ID
     custom_poll_id = st.text_input("Enter Custom Poll ID")
     
@@ -219,6 +234,26 @@ def results_page():
 
 # Main app
 def main():
+    query_params = st.experimental_get_query_params()
+    
+    # Add logo and description to the sidebar
+    st.sidebar.image("https://tuonlineresources.com/apps/poller/images/logo-256.png", use_column_width=True)  # Add the logo
+    st.sidebar.markdown("Poller+")  # Add the app name
+    st.sidebar.markdown("Polling and information gathering for Tiffin University research. Private and secure.")  # Add app description
+    
+    if 'page' in query_params and query_params['page'][0] == 'poll':
+        poll_page()
+    else:
+        st.sidebar.title("Navigation")
+        page = st.sidebar.radio("Select a page", ["Admin", "Poll", "Results"])
+
+        if page == "Admin":
+            admin_page()
+        elif page == "Poll":
+            poll_page()
+        elif page == "Results":
+            results_page()
+
     query_params = st.experimental_get_query_params()
     if 'page' in query_params and query_params['page'][0] == 'poll':
         poll_page()
