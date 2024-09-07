@@ -221,27 +221,14 @@ def poll_page():
             elif q_type == "file":
                 uploaded_file = st.file_uploader(q_text, key=f"q_{i}")
                 if uploaded_file is not None:
-                    # Generate a unique file name
-                    file_extension = os.path.splitext(uploaded_file.name)[1]
-                    unique_filename = f"{poll_id}_{i}_{int(time.time())}{file_extension}"
-                    
                     st.write(f"File selected: {uploaded_file.name}")
-                    
-                    # Store file information without uploading
+                    # Store only the necessary file information
                     answer = {
-                        "file": uploaded_file,
-                        "filename": unique_filename,
-                        "original_filename": uploaded_file.name,
+                        "filename": uploaded_file.name,
                         "content_type": uploaded_file.type,
+                        "size": uploaded_file.size,
                         "uploaded": False
                     }
-                    
-                    # Get the storage client (but don't upload yet)
-                    storage_client = supabase.storage
-                    bucket = storage_client.from_('poll_files')
-                    
-                    # Store the bucket information for later use
-                    answer["bucket"] = bucket
                 else:
                     answer = None
             else:
@@ -251,38 +238,64 @@ def poll_page():
             # Ensure only serializable data is appended
             user_responses.append(answer)
 
-    if st.button("Submit"):
-        st.write("Debug: Submit button clicked")
-        if not name or not email:
-            st.error("Please enter your name and email.")
-            return
-    
-        try:
-            st.write("Debug: Starting submission process")
-            st.write(f"Debug: Poll ID: {poll_id}")
-            st.write(f"Debug: Name: {name}")
-            st.write(f"Debug: Email: {email}")
-            st.write(f"Debug: User responses: {user_responses}")
-            
-            # Prepare response data
-            response_data = {
-                "poll_id": poll_id,
-                "name": name,
-                "email": email,
-                "responses": user_responses
-            }
-            st.write("Debug: Response data prepared", response_data)
-    
-            # Insert the poll responses
-            st.write("Debug: Attempting to insert data into Supabase")
-            result = supabase.table("responses").insert(response_data).execute()
-            st.write("Debug: Supabase insert result", result)
-    
-            st.success("Thank you for your responses!")
-        except Exception as e:
-            st.error(f"Error submitting responses: {str(e)}")
-            st.write("Debug: Full error information", e)
-            st.write("Debug: Error type", type(e).__name__)
+        if st.button("Submit"):
+            st.write("Debug: Submit button clicked")
+            if not name or not email:
+                st.error("Please enter your name and email.")
+                return
+        
+            try:
+                st.write("Debug: Starting submission process")
+                
+                # Process file uploads
+                for i, response in enumerate(user_responses):
+                    if isinstance(response, dict) and 'uploaded' in response and not response['uploaded']:
+                        st.write(f"Debug: Processing file upload for question {i+1}")
+                        
+                        # Get the file uploader object
+                        file_uploader_key = f"q_{i}"
+                        uploaded_file = st.session_state[file_uploader_key]
+                        
+                        # Generate a unique file name
+                        file_extension = os.path.splitext(uploaded_file.name)[1]
+                        unique_filename = f"{poll_id}_{i}_{int(time.time())}{file_extension}"
+                        
+                        # Upload the file
+                        storage_client = supabase.storage
+                        bucket = storage_client.from_('poll_files')
+                        file_bytes = uploaded_file.read()
+                        res = bucket.upload(file=file_bytes, path=unique_filename, file_options={"content-type": uploaded_file.type})
+                        
+                        # Update the response with the file URL
+                        file_url = bucket.get_public_url(unique_filename)
+                        user_responses[i] = {
+                            "filename": uploaded_file.name,
+                            "url": file_url,
+                            "content_type": uploaded_file.type,
+                            "size": uploaded_file.size
+                        }
+                        
+                        st.write(f"Debug: File upload complete for question {i+1}")
+        
+                # Prepare response data
+                response_data = {
+                    "poll_id": poll_id,
+                    "name": name,
+                    "email": email,
+                    "responses": user_responses
+                }
+                st.write("Debug: Response data prepared", response_data)
+        
+                # Insert the poll responses
+                st.write("Debug: Attempting to insert data into Supabase")
+                result = supabase.table("responses").insert(response_data).execute()
+                st.write("Debug: Supabase insert result", result)
+        
+                st.success("Thank you for your responses!")
+            except Exception as e:
+                st.error(f"Error submitting responses: {str(e)}")
+                st.write("Debug: Full error information", e)
+                st.write("Debug: Error type", type(e).__name__)
 
 def results_page():
     st.title("Poll Results")
