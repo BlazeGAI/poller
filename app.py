@@ -245,7 +245,7 @@ def main():
         poll_page()
     else:
         st.sidebar.title("Navigation")
-        page = st.sidebar.radio("Select a page", ["Admin", "Poll", "Results"])
+        page = st.sidebar.radio("Select a page", ["Admin", "Poll", "Results"], key="page_radio")
 
         if page == "Admin":
             admin_page()
