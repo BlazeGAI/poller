@@ -190,10 +190,19 @@ def poll_page():
                 if uploaded_file is not None:
                     # Save the file to Supabase Storage
                     try:
+                        # Correct storage usage to avoid the 'callable' error
+                        storage_client = supabase.storage()  # Get the storage client
+                        bucket = storage_client.from_('poll_files')  # Access the bucket
                         file_name = f"{poll_id}_{uploaded_file.name}"
-                        supabase.storage().from_('poll_files').upload(file_name, uploaded_file)
-                        # Get the public URL for the file (adjust this based on your setup)
-                        file_url = supabase.storage().from_('poll_files').get_public_url(file_name)
+                        
+                        # Upload the file
+                        res = bucket.upload(file_name, uploaded_file.read())  # Upload file data
+                        
+                        if res.get("error"):
+                            raise Exception(res["error"]["message"])
+                        
+                        # Get the public URL for the file
+                        file_url = bucket.get_public_url(file_name)
                         st.success(f"File {file_name} uploaded successfully!")
                     except Exception as e:
                         st.error(f"File upload failed: {e}")
@@ -229,6 +238,7 @@ def poll_page():
                 st.success("Thank you for your responses!")
             except Exception as e:
                 st.error(f"Error submitting responses: {e}")
+
 
 
 def results_page():
