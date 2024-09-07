@@ -262,7 +262,7 @@ def poll_page():
                         unique_filename = f"{poll_id}_{i}_{int(time.time())}{file_extension}"
                         
                 # Upload the file
-                    res = bucket.upload(file=file_bytes, path=unique_filename, file_options={"content-type": uploaded_file.type})
+                res = bucket.upload(file=file_bytes, path=unique_filename, file_options={"content-type": uploaded_file.type})
                     
                     if res and getattr(res, 'status_code', None) == 200:  # Check if upload was successful
                         file_url = bucket.get_public_url(unique_filename)
