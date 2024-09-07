@@ -158,6 +158,7 @@ def poll_page():
         email = st.text_input("Email")
         
         user_responses = []
+        file_url = None  # Placeholder for the file URL
         for i, question in enumerate(questions):
             try:
                 q_type, q_text = question.split(":", 1)
@@ -181,28 +182,54 @@ def poll_page():
             elif q_type == "number":
                 answer = st.number_input(q_text, key=f"q_{i}")
             elif q_type == "date":
-                answer = st.date_input(q_text, key=f"q_{i}")
+                answer = str(st.date_input(q_text, key=f"q_{i}"))  # Convert date to string
             elif q_type == "time":
-                answer = st.time_input(q_text, key=f"q_{i}")
+                answer = str(st.time_input(q_text, key=f"q_{i}"))  # Convert time to string
             elif q_type == "file":
-                answer = st.file_uploader(q_text, key=f"q_{i}")
+                uploaded_file = st.file_uploader(q_text, key=f"q_{i}")
+                if uploaded_file is not None:
+                    # Save the file to Supabase Storage
+                    try:
+                        file_name = f"{poll_id}_{uploaded_file.name}"
+                        supabase.storage().from_('poll_files').upload(file_name, uploaded_file)
+                        # Get the public URL for the file (adjust this based on your setup)
+                        file_url = supabase.storage().from_('poll_files').get_public_url(file_name)
+                        st.success(f"File {file_name} uploaded successfully!")
+                    except Exception as e:
+                        st.error(f"File upload failed: {e}")
+                        file_url = None  # Handle failed upload
+                    answer = uploaded_file.name  # Store the file name as part of the response
+                else:
+                    answer = None
             else:
                 st.error(f"Unknown question type: {q_type}")
                 continue
+
+            # Ensure only serializable data is appended
             user_responses.append(answer)
 
         if st.button("Submit"):
             if not name or not email:
                 st.error("Please enter your name and email.")
                 return
+            
+            try:
+                # Insert the poll responses along with the file URL
+                response_data = {
+                    "poll_id": poll_id,
+                    "name": name,
+                    "email": email,
+                    "responses": user_responses
+                }
 
-            supabase.table("responses").insert({
-                "poll_id": poll_id,
-                "name": name,
-                "email": email,
-                "responses": user_responses
-            }).execute()
-            st.success("Thank you for your responses!")
+                if file_url:
+                    response_data["file_url"] = file_url  # Add file URL to the responses
+
+                supabase.table("responses").insert(response_data).execute()
+                st.success("Thank you for your responses!")
+            except Exception as e:
+                st.error(f"Error submitting responses: {e}")
+
 
 def results_page():
     st.title("Poll Results")
