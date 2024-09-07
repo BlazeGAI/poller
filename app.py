@@ -247,7 +247,7 @@ def poll_page():
         
             try:
                 st.write("Debug: Starting submission process")
-             
+                
                 # Process file uploads
                 for i, response in enumerate(user_responses):
                     if isinstance(response, dict) and 'uploaded' in response and not response['uploaded']:
@@ -260,36 +260,36 @@ def poll_page():
                         # Generate a unique file name
                         file_extension = os.path.splitext(uploaded_file.name)[1]
                         unique_filename = f"{poll_id}_{i}_{int(time.time())}{file_extension}"
-            try:              
-                # Upload the file
-                res = bucket.upload(file=file_bytes, path=unique_filename, file_options={"content-type": uploaded_file.type})
-                    
-                    if res and getattr(res, 'status_code', None) == 200:  # Check if upload was successful
-                        file_url = bucket.get_public_url(unique_filename)
-                        user_responses[i] = {
-                            "filename": uploaded_file.name,
-                            "url": file_url,
-                            "content_type": uploaded_file.type,
-                            "size": uploaded_file.size,
-                            "uploaded": True  # Set to True after successful upload
-                        }
-                        st.success(f"File {uploaded_file.name} uploaded successfully.")
-                    else:
-                        st.error(f"File upload failed for {uploaded_file.name}.")
-                        user_responses[i] = {
-                            "filename": uploaded_file.name,
-                            "content_type": uploaded_file.type,
-                            "size": uploaded_file.size,
-                            "uploaded": False
-                        }
-                except Exception as e:
-                    st.error(f"Error during file upload: {str(e)}")
-                    user_responses[i] = {
-                        "filename": uploaded_file.name,
-                        "content_type": uploaded_file.type,
-                        "size": uploaded_file.size,
-                        "uploaded": False
-                    }
+                        
+                        try:
+                            # Read file bytes
+                            file_bytes = uploaded_file.read()
+                            
+                            # Upload the file
+                            storage_client = supabase.storage
+                            bucket = storage_client.from_('poll_files')
+                            res = bucket.upload(file=file_bytes, path=unique_filename, file_options={"content-type": uploaded_file.type})
+                            
+                            if res:  # Supabase storage upload returns True on success
+                                file_url = bucket.get_public_url(unique_filename)
+                                user_responses[i] = {
+                                    "filename": uploaded_file.name,
+                                    "url": file_url,
+                                    "content_type": uploaded_file.type,
+                                    "size": uploaded_file.size,
+                                    "uploaded": True  # Set to True after successful upload
+                                }
+                                st.success(f"File {uploaded_file.name} uploaded successfully.")
+                            else:
+                                raise Exception("Upload failed")
+                        except Exception as e:
+                            st.error(f"Error during file upload: {str(e)}")
+                            user_responses[i] = {
+                                "filename": uploaded_file.name,
+                                "content_type": uploaded_file.type,
+                                "size": uploaded_file.size,
+                                "uploaded": False
+                            }
         
                 # Prepare response data
                 response_data = {
