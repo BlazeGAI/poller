@@ -188,18 +188,17 @@ def poll_page():
             elif q_type == "file":
                 uploaded_file = st.file_uploader(q_text, key=f"q_{i}")
                 if uploaded_file is not None:
-                    # Convert UploadedFile to bytes and upload it to Supabase
                     try:
                         file_name = f"{poll_id}_{uploaded_file.name}"
-                        file_bytes = uploaded_file.read()  # Read file contents as bytes
+                        file_bytes = uploaded_file.read()
                         
-                        # Correct usage of Supabase Storage client
-                        storage_client = supabase.storage()
-                        bucket = storage_client.from_('poll_files')  # Specify the storage bucket
-
-                        # Upload the file bytes to Supabase Storage
-                        res = bucket.upload(file_name, file_bytes)
-
+                        # Get the storage client
+                        storage_client = supabase.storage
+                        bucket = storage_client.from_('poll_files')
+            
+                        # Upload the file
+                        res = bucket.upload(file=file_bytes, path=file_name, file_options={"content-type": uploaded_file.type})
+            
                         if res.get("error"):
                             raise Exception(res["error"]["message"])
                         
@@ -208,8 +207,8 @@ def poll_page():
                         st.success(f"File {file_name} uploaded successfully!")
                     except Exception as e:
                         st.error(f"File upload failed: {e}")
-                        file_url = None  # Handle failed upload
-                    answer = uploaded_file.name  # Store the file name as part of the response
+                        file_url = None
+                    answer = uploaded_file.name
                 else:
                     answer = None
             else:
