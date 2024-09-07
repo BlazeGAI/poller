@@ -269,14 +269,16 @@ def poll_page():
                         
                         # Update the response with the file URL
                         file_url = bucket.get_public_url(unique_filename)
-                        user_responses[i] = {
-                            "filename": uploaded_file.name,
-                            "url": file_url,
-                            "content_type": uploaded_file.type,
-                            "size": uploaded_file.size
-                        }
-                        
-                        st.write(f"Debug: File upload complete for question {i+1}")
+                        file_check = requests.head(file_url)
+                        if file_check.status_code == 200 and 'image' in file_check.headers.get('content-type', ''):
+                            user_responses[i] = {
+                                "filename": uploaded_file.name,
+                                "url": file_url,
+                                "content_type": uploaded_file.type,
+                                "size": uploaded_file.size
+                            }
+                        else:
+                            st.error(f"File upload failed or incorrect file type for {uploaded_file.name}")
         
                 # Prepare response data
                 response_data = {
@@ -343,20 +345,20 @@ def create_zip_of_uploaded_files(poll_id):
                     original_filename = answer['filename']
                     file_name = f"{response['name']}_{i+1}_{original_filename}"
                     
-                    # Get the public URL of the file
-                    storage_client = supabase.storage
-                    bucket = storage_client.from_('poll_files')
-                    public_url = bucket.get_public_url(file_url.split('/')[-1])
-                    
                     # Download the file content using requests
-                    file_response = requests.get(public_url)
+                    file_response = requests.get(file_url)
                     if file_response.status_code == 200:
+                        content_type = file_response.headers.get('content-type', '')
+                        if 'text/html' in content_type:
+                            st.warning(f"File {original_filename} appears to be HTML, not the expected file type.")
+                            continue
+                        
                         file_data = file_response.content
                         
                         # Add file to zip
                         zipf.writestr(file_name, file_data)
                     else:
-                        st.warning(f"Failed to download file: {original_filename}")
+                        st.warning(f"Failed to download file: {original_filename}. Status code: {file_response.status_code}")
     
     return zip_filename
 
