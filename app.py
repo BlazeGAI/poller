@@ -48,7 +48,7 @@ def admin_page():
     st.image("https://tuonlineresources.com/apps/poller/images/logo-icon.png", width=50)  # Small logo in upper-right corner
     
     # Input field to enter a custom Poll ID
-    custom_poll_id = st.text_input("Enter Custom Poll ID")
+    custom_poll_id = st.text_input("Enter Custom Poll ID", key="custom_poll_id_input")
     
     if custom_poll_id:
         st.session_state.poll_id = custom_poll_id
@@ -60,7 +60,7 @@ def admin_page():
     st.write("Your Poll ID is:")
     st.code(poll_id)
     st.write("(Use this ID to view results or share with other admins)")
-    
+
     # Check if poll exists in Supabase
     try:
         poll_data = supabase.table("polls").select("*").eq("id", poll_id).execute()
@@ -91,7 +91,7 @@ def admin_page():
     st.image(qr_bytes, caption="Scan this QR code to access the poll")
     st.write(f"Poll URL: {poll_url}")
 
-    uploaded_file = st.file_uploader("Upload questions file", type="txt")
+    uploaded_file = st.file_uploader("Upload questions file", type="txt", key="questions_uploader")
     if uploaded_file is not None:
         questions = [line.decode("utf-8").strip() for line in uploaded_file.readlines() if line.strip()]
         supabase.table("polls").update({"questions": questions}).eq("id", poll_id).execute()
@@ -101,7 +101,8 @@ def admin_page():
     for i, question in enumerate(questions, 1):
         st.write(f"{i}. {question}")
 
-    if st.button("Download Responses as Excel"):
+    # Download Responses as Excel functionality
+    if st.button("Download Responses as Excel", key="download_responses"):
         responses_data = supabase.table("responses").select("*").eq("poll_id", poll_id).execute()
         responses = responses_data.data
         
@@ -117,13 +118,15 @@ def admin_page():
             df = pd.DataFrame(data, columns=headers)
             st.write(df)
             
+            # Ensure the Excel file can be downloaded correctly
             excel_file = BytesIO()
             with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
                 df.to_excel(writer, index=False, sheet_name='Responses')
+            excel_file.seek(0)  # Reset the stream position to the beginning
             
             st.download_button(
                 label="Download Excel file",
-                data=excel_file.getvalue(),
+                data=excel_file,
                 file_name="responses.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
@@ -246,20 +249,6 @@ def main():
     else:
         st.sidebar.title("Navigation")
         page = st.sidebar.radio("Select a page", ["Admin", "Poll", "Results"], key="page_radio")
-
-        if page == "Admin":
-            admin_page()
-        elif page == "Poll":
-            poll_page()
-        elif page == "Results":
-            results_page()
-
-    query_params = st.experimental_get_query_params()
-    if 'page' in query_params and query_params['page'][0] == 'poll':
-        poll_page()
-    else:
-        st.sidebar.title("Navigation")
-        page = st.sidebar.radio("Select a page", ["Admin", "Poll", "Results"])
 
         if page == "Admin":
             admin_page()
