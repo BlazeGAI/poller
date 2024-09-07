@@ -210,7 +210,9 @@ def poll_page():
                 uploaded_file = st.file_uploader(q_text, key=f"q_{i}")
                 if uploaded_file is not None:
                     try:
-                        file_name = f"{poll_id}_{i}_{uploaded_file.name}"  # Include question number in filename
+                        # Generate a unique file name
+                        file_extension = os.path.splitext(uploaded_file.name)[1]
+                        unique_filename = f"{poll_id}_{i}_{int(time.time())}{file_extension}"
                         file_bytes = uploaded_file.read()
                         
                         # Get the storage client
@@ -218,22 +220,20 @@ def poll_page():
                         bucket = storage_client.from_('poll_files')
             
                         # Upload the file
-                        res = bucket.upload(file=file_bytes, path=file_name, file_options={"content-type": uploaded_file.type})
+                        res = bucket.upload(file=file_bytes, path=unique_filename, file_options={"content-type": uploaded_file.type})
             
                         # Check the response
-                        if res:
-                            if isinstance(res, dict) and 'path' in res:
-                                file_url = bucket.get_public_url(res['path'])
-                            elif hasattr(res, 'path'):
-                                file_url = bucket.get_public_url(res.path)
-                            else:
-                                st.error(f"Unexpected response format: {res}")
-                                raise Exception(f"Unexpected response format: {res}")
-                            
+                        if isinstance(res, dict) and res.get('path'):
+                            file_url = bucket.get_public_url(res['path'])
+                            st.success(f"File {uploaded_file.name} uploaded successfully!")
+                            answer = {"filename": uploaded_file.name, "url": file_url}
+                        elif hasattr(res, 'status_code') and res.status_code == 200:
+                            file_url = bucket.get_public_url(unique_filename)
                             st.success(f"File {uploaded_file.name} uploaded successfully!")
                             answer = {"filename": uploaded_file.name, "url": file_url}
                         else:
-                            raise Exception("Upload failed: No response received")
+                            st.error(f"Unexpected response format: {res}")
+                            raise Exception(f"Unexpected response format: {res}")
                         
                     except Exception as e:
                         st.error(f"File upload failed: {str(e)}")
