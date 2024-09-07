@@ -247,7 +247,7 @@ def poll_page():
         
             try:
                 st.write("Debug: Starting submission process")
-                
+             
                 # Process file uploads
                 for i, response in enumerate(user_responses):
                     if isinstance(response, dict) and 'uploaded' in response and not response['uploaded']:
@@ -260,7 +260,7 @@ def poll_page():
                         # Generate a unique file name
                         file_extension = os.path.splitext(uploaded_file.name)[1]
                         unique_filename = f"{poll_id}_{i}_{int(time.time())}{file_extension}"
-                        
+            try:              
                 # Upload the file
                 res = bucket.upload(file=file_bytes, path=unique_filename, file_options={"content-type": uploaded_file.type})
                     
