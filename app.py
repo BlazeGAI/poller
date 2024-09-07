@@ -210,7 +210,7 @@ def poll_page():
                 uploaded_file = st.file_uploader(q_text, key=f"q_{i}")
                 if uploaded_file is not None:
                     try:
-                        file_name = f"{poll_id}_{uploaded_file.name}"
+                        file_name = f"{poll_id}_{i}_{uploaded_file.name}"  # Include question number in filename
                         file_bytes = uploaded_file.read()
                         
                         # Get the storage client
@@ -220,17 +220,24 @@ def poll_page():
                         # Upload the file
                         res = bucket.upload(file=file_bytes, path=file_name, file_options={"content-type": uploaded_file.type})
             
-                        # Check if the upload was successful
-                        if res and hasattr(res, 'path'):
-                            file_url = bucket.get_public_url(res.path)
-                            st.success(f"File {file_name} uploaded successfully!")
+                        # Check the response
+                        if res:
+                            if isinstance(res, dict) and 'path' in res:
+                                file_url = bucket.get_public_url(res['path'])
+                            elif hasattr(res, 'path'):
+                                file_url = bucket.get_public_url(res.path)
+                            else:
+                                st.error(f"Unexpected response format: {res}")
+                                raise Exception(f"Unexpected response format: {res}")
+                            
+                            st.success(f"File {uploaded_file.name} uploaded successfully!")
+                            answer = {"filename": uploaded_file.name, "url": file_url}
                         else:
-                            raise Exception("Upload failed: No valid response received")
+                            raise Exception("Upload failed: No response received")
                         
                     except Exception as e:
                         st.error(f"File upload failed: {str(e)}")
-                        file_url = None
-                    answer = uploaded_file.name
+                        answer = None
                 else:
                     answer = None
             else:
@@ -244,19 +251,16 @@ def poll_page():
             if not name or not email:
                 st.error("Please enter your name and email.")
                 return
-
+        
             try:
-                # Insert the poll responses along with the file URL
+                # Insert the poll responses along with the file URLs
                 response_data = {
                     "poll_id": poll_id,
                     "name": name,
                     "email": email,
                     "responses": user_responses
                 }
-
-                if file_url:
-                    response_data["file_url"] = file_url  # Add file URL to the responses
-
+        
                 supabase.table("responses").insert(response_data).execute()
                 st.success("Thank you for your responses!")
             except Exception as e:
@@ -301,17 +305,19 @@ def create_zip_of_uploaded_files(poll_id):
     zip_filename = f"{poll_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
     with zipfile.ZipFile(zip_filename, 'w') as zipf:
         for response in responses.data:
-            if 'file_url' in response and response['file_url']:
-                file_url = response['file_url']
-                file_name = file_url.split('/')[-1]
-                
-                # Download the file from Supabase
-                storage_client = supabase.storage
-                bucket = storage_client.from_('poll_files')
-                file_data = bucket.download(file_name)
-                
-                # Add file to zip
-                zipf.writestr(file_name, file_data)
+            for i, answer in enumerate(response['responses']):
+                if isinstance(answer, dict) and 'url' in answer:
+                    file_url = answer['url']
+                    original_filename = answer['filename']
+                    file_name = f"{response['name']}_{i+1}_{original_filename}"
+                    
+                    # Download the file from Supabase
+                    storage_client = supabase.storage
+                    bucket = storage_client.from_('poll_files')
+                    file_data = bucket.download(file_url.split('/')[-1])
+                    
+                    # Add file to zip
+                    zipf.writestr(file_name, file_data)
     
     return zip_filename
 
