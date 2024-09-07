@@ -193,14 +193,18 @@ def poll_page():
                         file_name = f"{poll_id}_{uploaded_file.name}"
                         file_bytes = uploaded_file.read()  # Read file contents as bytes
                         
+                        # Correct usage of Supabase Storage client
+                        storage_client = supabase.storage()
+                        bucket = storage_client.from_('poll_files')  # Specify the storage bucket
+
                         # Upload the file bytes to Supabase Storage
-                        res = supabase.storage().from_('poll_files').upload(file_name, file_bytes)
+                        res = bucket.upload(file_name, file_bytes)
 
                         if res.get("error"):
                             raise Exception(res["error"]["message"])
                         
                         # Get the public URL for the file
-                        file_url = supabase.storage().from_('poll_files').get_public_url(file_name)
+                        file_url = bucket.get_public_url(file_name)
                         st.success(f"File {file_name} uploaded successfully!")
                     except Exception as e:
                         st.error(f"File upload failed: {e}")
