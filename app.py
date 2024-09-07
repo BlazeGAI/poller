@@ -9,6 +9,8 @@ import random
 import string
 import pandas as pd
 from supabase import create_client, Client
+import zipfile
+from datetime import datetime
 
 # Supabase credentials
 SUPABASE_URL = "https://czivxiadenrdpxebnqpu.supabase.co"  # Replace with your actual Supabase URL
@@ -130,6 +132,25 @@ def admin_page():
                 file_name="responses.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
+     if st.button("Download All Uploaded Files"):
+            with st.spinner("Preparing zip file..."):
+                zip_filename = create_zip_of_uploaded_files(poll_id)
+            
+            # Read the zip file
+            with open(zip_filename, "rb") as f:
+                zip_contents = f.read()
+            
+            # Offer the zip file for download
+            st.download_button(
+                label="Download Zip File",
+                data=zip_contents,
+                file_name=zip_filename,
+                mime="application/zip"
+            )
+            
+            # Clean up: remove the temporary zip file
+            os.remove(zip_filename)
 
 def poll_page():
     st.title("User Poll")
@@ -271,6 +292,28 @@ def results_page():
                 st.bar_chart(counts)
 
             st.write(f"\nTotal Responses: {len(responses)}")
+
+def create_zip_of_uploaded_files(poll_id):
+    # Get all responses for this poll
+    responses = supabase.table("responses").select("*").eq("poll_id", poll_id).execute()
+    
+    # Create a temporary zip file
+    zip_filename = f"{poll_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+    with zipfile.ZipFile(zip_filename, 'w') as zipf:
+        for response in responses.data:
+            if 'file_url' in response and response['file_url']:
+                file_url = response['file_url']
+                file_name = file_url.split('/')[-1]
+                
+                # Download the file from Supabase
+                storage_client = supabase.storage
+                bucket = storage_client.from_('poll_files')
+                file_data = bucket.download(file_name)
+                
+                # Add file to zip
+                zipf.writestr(file_name, file_data)
+    
+    return zip_filename
 
 # Main app
 def main():
