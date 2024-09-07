@@ -199,14 +199,15 @@ def poll_page():
                         # Upload the file
                         res = bucket.upload(file=file_bytes, path=file_name, file_options={"content-type": uploaded_file.type})
             
-                        if res.get("error"):
-                            raise Exception(res["error"]["message"])
+                        # Check if the upload was successful
+                        if res and hasattr(res, 'path'):
+                            file_url = bucket.get_public_url(res.path)
+                            st.success(f"File {file_name} uploaded successfully!")
+                        else:
+                            raise Exception("Upload failed: No valid response received")
                         
-                        # Get the public URL for the file
-                        file_url = bucket.get_public_url(file_name)
-                        st.success(f"File {file_name} uploaded successfully!")
                     except Exception as e:
-                        st.error(f"File upload failed: {e}")
+                        st.error(f"File upload failed: {str(e)}")
                         file_url = None
                     answer = uploaded_file.name
                 else:
