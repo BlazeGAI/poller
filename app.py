@@ -132,8 +132,8 @@ def admin_page():
                 file_name="responses.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-
-     if st.button("Download All Uploaded Files"):
+    # New button for downloading all uploaded files
+    if st.button("Download All Uploaded Files"):
             with st.spinner("Preparing zip file..."):
                 zip_filename = create_zip_of_uploaded_files(poll_id)
             
@@ -151,7 +151,7 @@ def admin_page():
             
             # Clean up: remove the temporary zip file
             os.remove(zip_filename)
-
+ 
 def poll_page():
     st.title("User Poll")
 
