@@ -262,38 +262,34 @@ def poll_page():
                         unique_filename = f"{poll_id}_{i}_{int(time.time())}{file_extension}"
                         
                 # Upload the file
-                storage_client = supabase.storage
-                bucket = storage_client.from_('poll_files')
-                file_bytes = uploaded_file.read()
-                res = bucket.upload(file=file_bytes, path=unique_filename, file_options={"content-type": uploaded_file.type})
-            
-                if res.status_code == 200:  # Check if upload was successful
-                    # Update the response with the file URL
-                    file_url = bucket.get_public_url(unique_filename)
+                    res = bucket.upload(file=file_bytes, path=unique_filename, file_options={"content-type": uploaded_file.type})
                     
-                    # Verify the file is accessible and of the correct type
-                    file_check = requests.head(file_url)
-                    if file_check.status_code == 200:
-                        content_type = file_check.headers.get('content-type', '')
-                        if 'image' in content_type or uploaded_file.type in content_type:  # Adjust this condition as needed
-                            user_responses[i] = {
-                                "filename": uploaded_file.name,
-                                "url": file_url,
-                                "content_type": uploaded_file.type,
-                                "size": uploaded_file.size
-                            }
-                            st.success(f"File {uploaded_file.name} uploaded successfully.")
-                        else:
-                            st.error(f"Incorrect file type for {uploaded_file.name}. Expected {uploaded_file.type}, got {content_type}")
+                    if res and getattr(res, 'status_code', None) == 200:  # Check if upload was successful
+                        file_url = bucket.get_public_url(unique_filename)
+                        user_responses[i] = {
+                            "filename": uploaded_file.name,
+                            "url": file_url,
+                            "content_type": uploaded_file.type,
+                            "size": uploaded_file.size,
+                            "uploaded": True  # Set to True after successful upload
+                        }
+                        st.success(f"File {uploaded_file.name} uploaded successfully.")
                     else:
-                        st.error(f"Uploaded file {uploaded_file.name} is not accessible. Status code: {file_check.status_code}")
-                else:
-                    st.error(f"File upload failed for {uploaded_file.name}. Status code: {res.status_code}")
-            
-            except Exception as e:
-                st.error(f"Error during file upload: {str(e)}")
-                st.write("Debug: Full error information", e)
-                st.write("Debug: Error type", type(e).__name__)
+                        st.error(f"File upload failed for {uploaded_file.name}.")
+                        user_responses[i] = {
+                            "filename": uploaded_file.name,
+                            "content_type": uploaded_file.type,
+                            "size": uploaded_file.size,
+                            "uploaded": False
+                        }
+                except Exception as e:
+                    st.error(f"Error during file upload: {str(e)}")
+                    user_responses[i] = {
+                        "filename": uploaded_file.name,
+                        "content_type": uploaded_file.type,
+                        "size": uploaded_file.size,
+                        "uploaded": False
+                    }
         
                 # Prepare response data
                 response_data = {
