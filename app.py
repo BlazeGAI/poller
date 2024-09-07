@@ -133,10 +133,10 @@ def admin_page():
 
 def poll_page():
     st.title("User Poll")
-    
+
     query_params = st.experimental_get_query_params()
     poll_id = query_params.get('poll_id', [None])[0]
-    
+
     if not poll_id:
         poll_id = st.text_input("Enter Poll ID")
         if not poll_id:
@@ -156,7 +156,7 @@ def poll_page():
         st.write(f"Poll ID: {poll_id}")
         name = st.text_input("Name")
         email = st.text_input("Email")
-        
+
         user_responses = []
         file_url = None  # Placeholder for the file URL
         for i, question in enumerate(questions):
@@ -165,7 +165,7 @@ def poll_page():
             except ValueError:
                 st.error(f"Invalid question format: {question}")
                 continue
-            
+
             if q_type == "text":
                 answer = st.text_input(q_text, key=f"q_{i}")
             elif q_type == "textarea":
@@ -190,19 +190,16 @@ def poll_page():
                 if uploaded_file is not None:
                     # Save the file to Supabase Storage
                     try:
-                        # Correct storage usage to avoid the 'callable' error
-                        storage_client = supabase.storage()  # Get the storage client
-                        bucket = storage_client.from_('poll_files')  # Access the bucket
                         file_name = f"{poll_id}_{uploaded_file.name}"
                         
-                        # Upload the file
-                        res = bucket.upload(file_name, uploaded_file.read())  # Upload file data
-                        
+                        # Upload file to Supabase Storage
+                        res = supabase.storage.from_('poll_files').upload(file_name, uploaded_file)
+
                         if res.get("error"):
                             raise Exception(res["error"]["message"])
                         
                         # Get the public URL for the file
-                        file_url = bucket.get_public_url(file_name)
+                        file_url = supabase.storage.from_('poll_files').get_public_url(file_name)
                         st.success(f"File {file_name} uploaded successfully!")
                     except Exception as e:
                         st.error(f"File upload failed: {e}")
@@ -221,7 +218,7 @@ def poll_page():
             if not name or not email:
                 st.error("Please enter your name and email.")
                 return
-            
+
             try:
                 # Insert the poll responses along with the file URL
                 response_data = {
@@ -238,8 +235,6 @@ def poll_page():
                 st.success("Thank you for your responses!")
             except Exception as e:
                 st.error(f"Error submitting responses: {e}")
-
-
 
 def results_page():
     st.title("Poll Results")
