@@ -151,6 +151,18 @@ def admin_page():
             
             # Clean up: remove the temporary zip file
             os.remove(zip_filename)
+        
+    st.write(f"Debug: Current Poll ID: {poll_id}")
+    st.write("Debug: Attempting to retrieve responses")
+    try:
+        responses_data = supabase.table("responses").select("*").eq("poll_id", poll_id).execute()
+        st.write("Debug: Raw Supabase response", responses_data)
+        st.write("Debug: Responses data", responses_data.data)
+        st.write(f"Debug: Number of responses: {len(responses_data.data)}")
+    except Exception as e:
+        st.error(f"Error retrieving responses: {str(e)}")
+        st.write("Debug: Full error information", e)
+        st.write("Debug: Error type", type(e).__name__)
  
 def poll_page():
     st.title("User Poll")
@@ -240,30 +252,37 @@ def poll_page():
             user_responses.append(answer)
 
     if st.button("Submit"):
+        st.write("Debug: Submit button clicked")
         if not name or not email:
             st.error("Please enter your name and email.")
             return
     
         try:
-            # Process file uploads
-            for i, response in enumerate(user_responses):
-                if isinstance(response, dict) and 'file' in response and not response['uploaded']:
-                    uploaded_file = response['file']
-                    file_bytes = uploaded_file.read()
-                    bucket = response['bucket']
-                    
-                    # Upload the file
-                    res = bucket.upload(file=file_bytes, path=response['filename'], file_options={"content-type": response['content_type']})
-                    
-                    # Check the response and update user_responses
-                    # (Add your response checking logic here)
+            st.write("Debug: Starting submission process")
+            st.write(f"Debug: Poll ID: {poll_id}")
+            st.write(f"Debug: Name: {name}")
+            st.write(f"Debug: Email: {email}")
+            st.write(f"Debug: User responses: {user_responses}")
+            
+            # Prepare response data
+            response_data = {
+                "poll_id": poll_id,
+                "name": name,
+                "email": email,
+                "responses": user_responses
+            }
+            st.write("Debug: Response data prepared", response_data)
     
-            # Insert the poll responses into the database
-            # (Add your database insertion logic here)
+            # Insert the poll responses
+            st.write("Debug: Attempting to insert data into Supabase")
+            result = supabase.table("responses").insert(response_data).execute()
+            st.write("Debug: Supabase insert result", result)
     
             st.success("Thank you for your responses!")
         except Exception as e:
             st.error(f"Error submitting responses: {str(e)}")
+            st.write("Debug: Full error information", e)
+            st.write("Debug: Error type", type(e).__name__)
 
 def results_page():
     st.title("Poll Results")
