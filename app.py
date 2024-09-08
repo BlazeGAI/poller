@@ -79,6 +79,17 @@ def generate_poll_id():
 
 # Page functions
 def admin_page():
+
+if 'active_tab' not in st.session_state:
+    st.session_state.active_tab = "Login"
+
+tab1, tab2 = st.tabs(["Login", "Register"])
+
+if st.session_state.active_tab == "Login":
+    tab1.active = True
+else:
+    tab2.active = True
+    
     st.title("Admin Page")
     
     # Add a small logo to the upper-right corner using HTML/CSS
@@ -95,8 +106,8 @@ def admin_page():
     )
     
     st.image("https://tuonlineresources.com/apps/poller/images/logo-icon.png", width=50)  # Small logo in upper-right corner
-
- # Check if user is logged in
+    
+    # Check if user is logged in
     if 'user' not in st.session_state or not st.session_state.user:
         st.warning("Please log in or register to access the admin page.")
         tab1, tab2 = st.tabs(["Login", "Register"])
@@ -109,7 +120,7 @@ def admin_page():
                     user = supabase.auth.sign_in_with_password({"email": email, "password": password})
                     st.session_state.user = user
                     st.success("Login successful!")
-                    st.experimental_rerun()
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Login failed: {str(e)}")
         
@@ -145,7 +156,7 @@ def admin_page():
                             st.success("Registration successful! Please log in with your new credentials.")
                             # Switch to the login tab
                             st.session_state.active_tab = "Login"
-                            st.experimental_rerun()
+                            st.rerun()
                         except Exception as e:
                             st.error(f"Registration failed: {str(e)}")
         
@@ -210,7 +221,7 @@ def admin_page():
         supabase.auth.sign_out()
         st.session_state.user = None
         st.success("Logged out successfully!")
-        st.experimental_rerun()
+        st.rerun()
 
     # Download Responses as Excel functionality
     if st.button("Download Responses as Excel", key="download_responses"):
