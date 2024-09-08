@@ -109,7 +109,7 @@ def admin_page():
         with tab1:
             email = st.text_input("Email", key="login_email")
             password = st.text_input("Password", type="password", key="login_password")
-            if st.button("Login"):
+            if st.button("Login", key="login_button"):
                 try:
                     user = supabase.auth.sign_in_with_password({"email": email, "password": password})
                     st.session_state.user = user
@@ -120,11 +120,11 @@ def admin_page():
         
         with tab2:
             with st.form("registration_form"):
-                first_name = st.text_input("First Name")
-                last_name = st.text_input("Last Name")
-                reg_email = st.text_input("Tiffin University Email")
-                reg_password = st.text_input("Password", type="password")
-                confirm_password = st.text_input("Confirm Password", type="password")
+                first_name = st.text_input("First Name", key="reg_first_name")
+                last_name = st.text_input("Last Name", key="reg_last_name")
+                reg_email = st.text_input("Tiffin University Email", key="reg_email")
+                reg_password = st.text_input("Password", type="password", key="reg_password")
+                confirm_password = st.text_input("Confirm Password", type="password", key="reg_confirm_password")
                 
                 submit_button = st.form_submit_button("Register")
                 
@@ -156,67 +156,59 @@ def admin_page():
         # User is logged in, show admin content
         st.title("Admin Page")
 
-        # Add logout button to sidebar
-        with st.sidebar:
-            if st.button("Logout"):
-                supabase.auth.sign_out()
-                st.session_state.user = None
-                st.success("Logged out successfully!")
-                st.rerun()
+        # Rest of your admin page content goes here
+        custom_poll_id = st.text_input("Enter Custom Poll ID", key="custom_poll_id_input")
+        
+        if custom_poll_id:
+            st.session_state.poll_id = custom_poll_id
+        elif 'poll_id' not in st.session_state:
+            st.session_state.poll_id = generate_poll_id()
 
-    # If user is logged in, continue with the admin functionality
-    custom_poll_id = st.text_input("Enter Custom Poll ID", key="custom_poll_id_input")
-    
-    if custom_poll_id:
-        st.session_state.poll_id = custom_poll_id
-    elif 'poll_id' not in st.session_state:
-        st.session_state.poll_id = generate_poll_id()
+        poll_id = st.session_state.poll_id
+        
+        st.write("Your Poll ID is:")
+        st.code(poll_id)
+        st.write("(Use this ID to view results or share with other admins)")
 
-    poll_id = st.session_state.poll_id
-    
-    st.write("Your Poll ID is:")
-    st.code(poll_id)
-    st.write("(Use this ID to view results or share with other admins)")
+        # Check if poll exists in Supabase
+        try:
+            poll_data = supabase.table("polls").select("*").eq("id", poll_id).execute()
+            poll_active = False
+            questions = []
+            if poll_data.data:
+                poll_active = poll_data.data[0]["active"]
+                questions = poll_data.data[0]["questions"]
 
-    # Check if poll exists in Supabase
-    try:
-        poll_data = supabase.table("polls").select("*").eq("id", poll_id).execute()
-        poll_active = False
-        questions = []
-        if poll_data.data:
-            poll_active = poll_data.data[0]["active"]
-            questions = poll_data.data[0]["questions"]
+            poll_active = st.checkbox("Poll Active", value=poll_active, key=f"poll_active_{poll_id}")
 
-        poll_active = st.checkbox("Poll Active", value=poll_active, key=f"poll_active_{poll_id}")
+            if poll_active:
+                st.success("Poll is active!")
+            else:
+                st.warning("Poll is inactive.")
 
-        if poll_active:
-            st.success("Poll is active!")
-        else:
-            st.warning("Poll is inactive.")
+            # Save poll status to Supabase
+            if poll_data.data:
+                supabase.table("polls").update({"active": poll_active}).eq("id", poll_id).execute()
+            else:
+                supabase.table("polls").insert({"id": poll_id, "questions": questions, "active": poll_active}).execute()
+        except Exception as e:
+            st.error(f"Error querying Supabase: {e}")
 
-        # Save poll status to Supabase
-        if poll_data.data:
-            supabase.table("polls").update({"active": poll_active}).eq("id", poll_id).execute()
-        else:
-            supabase.table("polls").insert({"id": poll_id, "questions": questions, "active": poll_active}).execute()
-    except Exception as e:
-        st.error(f"Error querying Supabase: {e}")
+        base_url = "https://poller.streamlit.app"  # Replace with your actual base URL
+        poll_url = f"{base_url}/?page=poll&poll_id={poll_id}"
+        qr_bytes = get_qr_image_bytes(poll_url)
+        st.image(qr_bytes, caption="Scan this QR code to access the poll")
+        st.write(f"Poll URL: {poll_url}")
 
-    base_url = "https://poller.streamlit.app"  # Replace with your actual base URL
-    poll_url = f"{base_url}/?page=poll&poll_id={poll_id}"
-    qr_bytes = get_qr_image_bytes(poll_url)
-    st.image(qr_bytes, caption="Scan this QR code to access the poll")
-    st.write(f"Poll URL: {poll_url}")
+        uploaded_file = st.file_uploader("Upload questions file", type="txt", key="questions_uploader")
+        if uploaded_file is not None:
+            questions = [line.decode("utf-8").strip() for line in uploaded_file.readlines() if line.strip()]
+            supabase.table("polls").update({"questions": questions}).eq("id", poll_id).execute()
+            st.success("Questions uploaded successfully!")
 
-    uploaded_file = st.file_uploader("Upload questions file", type="txt", key="questions_uploader")
-    if uploaded_file is not None:
-        questions = [line.decode("utf-8").strip() for line in uploaded_file.readlines() if line.strip()]
-        supabase.table("polls").update({"questions": questions}).eq("id", poll_id).execute()
-        st.success("Questions uploaded successfully!")
-
-    st.write("Current Questions:")
-    for i, question in enumerate(questions, 1):
-        st.write(f"{i}. {question}")
+        st.write("Current Questions:")
+        for i, question in enumerate(questions, 1):
+            st.write(f"{i}. {question}")
 
     # Download Responses as Excel functionality
     if st.button("Download Responses as Excel", key="download_responses"):
@@ -519,7 +511,7 @@ def main():
         
         # Add logout button if user is logged in
         if 'user' in st.session_state and st.session_state.user:
-            if st.button("Logout"):
+            if st.button("Logout", key="sidebar_logout"):
                 supabase.auth.sign_out()
                 st.session_state.user = None
                 st.success("Logged out successfully!")
