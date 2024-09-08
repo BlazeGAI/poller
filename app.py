@@ -96,14 +96,14 @@ def admin_page():
     
     st.image("https://tuonlineresources.com/apps/poller/images/logo-icon.png", width=50)  # Small logo in upper-right corner
 
-    # Check if user is logged in
+      # Check if user is logged in
     if 'user' not in st.session_state or not st.session_state.user:
         st.warning("Please log in or register to access the admin page.")
         tab1, tab2 = st.tabs(["Login", "Register"])
         
         with tab1:
-            email = st.text_input("Email")
-            password = st.text_input("Password", type="password")
+            email = st.text_input("Email", key="login_email")
+            password = st.text_input("Password", type="password", key="login_password")
             if st.button("Login"):
                 try:
                     user = supabase.auth.sign_in_with_password({"email": email, "password": password})
@@ -114,34 +114,37 @@ def admin_page():
                     st.error(f"Login failed: {str(e)}")
         
         with tab2:
-            first_name = st.text_input("First Name")
-            last_name = st.text_input("Last Name")
-            reg_email = st.text_input("Tiffin University Email")
-            reg_password = st.text_input("Password", type="password", key="reg_password")
-            confirm_password = st.text_input("Confirm Password", type="password")
-            
-            if st.button("Register"):
-                if not first_name or not last_name or not reg_email or not reg_password:
-                    st.error("All fields are required.")
-                elif not reg_email.endswith("@tiffin.edu"):
-                    st.error("Please use a valid Tiffin University email address.")
-                elif reg_password != confirm_password:
-                    st.error("Passwords do not match.")
-                else:
-                    try:
-                        user = supabase.auth.sign_up({
-                            "email": reg_email,
-                            "password": reg_password,
-                            "options": {
-                                "data": {
-                                    "first_name": first_name,
-                                    "last_name": last_name
+            with st.form("registration_form"):
+                first_name = st.text_input("First Name")
+                last_name = st.text_input("Last Name")
+                reg_email = st.text_input("Tiffin University Email")
+                reg_password = st.text_input("Password", type="password")
+                confirm_password = st.text_input("Confirm Password", type="password")
+                
+                submit_button = st.form_submit_button("Register")
+                
+                if submit_button:
+                    if not first_name or not last_name or not reg_email or not reg_password or not confirm_password:
+                        st.error("All fields are required.")
+                    elif not reg_email.endswith("@tiffin.edu"):
+                        st.error("Please use a valid Tiffin University email address.")
+                    elif reg_password != confirm_password:
+                        st.error("Passwords do not match.")
+                    else:
+                        try:
+                            user = supabase.auth.sign_up({
+                                "email": reg_email,
+                                "password": reg_password,
+                                "options": {
+                                    "data": {
+                                        "first_name": first_name,
+                                        "last_name": last_name
+                                    }
                                 }
-                            }
-                        })
-                        st.success("Registration successful! Please check your email to verify your account.")
-                    except Exception as e:
-                        st.error(f"Registration failed: {str(e)}")
+                            })
+                            st.success("Registration successful! Please check your email to verify your account.")
+                        except Exception as e:
+                            st.error(f"Registration failed: {str(e)}")
         
         return  # Exit the function if not logged in
 
