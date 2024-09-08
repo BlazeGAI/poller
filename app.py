@@ -36,7 +36,7 @@ def admin_registration():
     confirm_password = st.text_input("Confirm Password", type="password")
 
     if st.button("Register"):
-        if not first_name or not last_name or not email or not password:
+        if not first_name or not last_name or not email or not password or not confirm_password:
             st.error("All fields are required.")
             return
 
@@ -60,10 +60,13 @@ def admin_registration():
                     }
                 }
             })
-            st.success("Registration successful! Please check your email to verify your account.")
+            st.success("Registration successful! Please log in with your new credentials.")
+            return True  # Indicate successful registration
         except Exception as e:
             st.error(f"Registration failed: {str(e)}")
+            return False  # Indicate failed registration
 
+    return False  # No registration attempt made
 # Helper functions
 def get_qr_image_bytes(url):
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
