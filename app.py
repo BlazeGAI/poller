@@ -20,7 +20,8 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def extract_file_info(answer):
     if isinstance(answer, dict) and 'filename' in answer and 'url' in answer:
-        return answer['filename'], answer['url']
+        url = answer['url'].rstrip('?')  # Remove trailing question mark
+        return answer['filename'], url
     elif isinstance(answer, list):
         return ', '.join(answer), ''  # Join list items with comma and space
     return str(answer), ''  # Convert to string for all other types
