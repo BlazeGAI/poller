@@ -82,19 +82,18 @@ def generate_poll_id():
 
 # Page functions
 def admin_page():
-
     if 'active_tab' not in st.session_state:
-                st.session_state.active_tab = "Login"
-            
-            tab1, tab2 = st.tabs(["Login", "Register"])
-            
-            if st.session_state.active_tab == "Login":
-                tab1.active = True
-            else:
-                tab2.active = True
-                
-                st.title("Admin Page")         
+        st.session_state.active_tab = "Login"
     
+    tab1, tab2 = st.tabs(["Login", "Register"])
+    
+    if st.session_state.active_tab == "Login":
+        tab1.active = True
+    else:
+        tab2.active = True
+    
+    st.title("Admin Page")         
+
     # Add a small logo to the upper-right corner using HTML/CSS
     st.markdown(
         """
@@ -113,7 +112,6 @@ def admin_page():
     # Check if user is logged in
     if 'user' not in st.session_state or not st.session_state.user:
         st.warning("Please log in or register to access the admin page.")
-        tab1, tab2 = st.tabs(["Login", "Register"])
         
         with tab1:
             email = st.text_input("Email", key="login_email")
