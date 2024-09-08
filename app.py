@@ -117,40 +117,40 @@ def admin_page():
         if not responses:
             st.warning("No responses available for this poll.")
         else:
-                    headers = ["id", "name", "email"]
-                    data = []
-                    for response in responses:
-                        row = [response["id"], response["name"], response["email"]]
-                        for i, answer in enumerate(response["responses"]):
-                            filename, url = extract_file_info(answer)
-                            if url:  # If it's a file upload question
-                                headers.extend([f"q_{i+1}_file_name", f"q_{i+1}_file_URL"])
-                                row.extend([filename, url])
-                            else:
-                                headers.append(f"q_{i+1}")
-                                row.append(filename)  # filename here is actually the original answer
-                        data.append(row)
-            
-                    df = pd.DataFrame(data, columns=headers)
+            headers = ["id", "name", "email"]
+            data = []
+            for response in responses:
+                row = [response["id"], response["name"], response["email"]]
+                for i, answer in enumerate(response["responses"]):
+                    filename, url = extract_file_info(answer)
+                    if url:  # If it's a file upload question
+                        headers.extend([f"q_{i+1}_file_name", f"q_{i+1}_file_URL"])
+                        row.extend([filename, url])
+                    else:
+                        headers.append(f"q_{i+1}")
+                        row.append(filename)  # filename here is actually the original answer
+                data.append(row)
+        
+            df = pd.DataFrame(data, columns=headers)
             st.write(df)
             
             # Ensure the Excel file can be downloaded correctly
-                    excel_file = BytesIO()
-                    with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
-                        df.to_excel(writer, index=False, sheet_name='Responses')
-                        worksheet = writer.sheets['Responses']
-                        for column in worksheet.columns:
-                            max_length = 0
-                            column = [cell for cell in column]
-                            for cell in column:
-                                try:
-                                    if len(str(cell.value)) > max_length:
-                                        max_length = len(cell.value)
-                                except:
-                                    pass
-                            adjusted_width = (max_length + 2)
-                            worksheet.column_dimensions[column[0].column_letter].width = adjusted_width
-                    excel_file.seek(0)  # Reset the stream position to the beginning
+            excel_file = BytesIO()
+            with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Responses')
+                worksheet = writer.sheets['Responses']
+                for column in worksheet.columns:
+                    max_length = 0
+                    column = [cell for cell in column]
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(cell.value)
+                        except:
+                            pass
+                    adjusted_width = (max_length + 2)
+                    worksheet.column_dimensions[column[0].column_letter].width = adjusted_width
+            excel_file.seek(0)  # Reset the stream position to the beginning
             
             st.download_button(
                 label="Download Excel file",
