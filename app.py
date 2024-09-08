@@ -159,7 +159,6 @@ def admin_page():
         # User is logged in, show admin content
         st.title("Admin Page")
 
-        # Rest of your admin page content goes here
         custom_poll_id = st.text_input("Enter Custom Poll ID", key="custom_poll_id_input")
         
         if custom_poll_id:
@@ -209,93 +208,93 @@ def admin_page():
             supabase.table("polls").update({"questions": questions}).eq("id", poll_id).execute()
             st.success("Questions uploaded successfully!")
 
-        st.write("Current Questions:")
-        for i, question in enumerate(questions, 1):
-            st.write(f"{i}. {question}")
+        # Show current questions only if there are any
+        if questions:
+            st.write("Current Questions:")
+            for i, question in enumerate(questions, 1):
+                st.write(f"{i}. {question}")
 
-    # Debug information
-    st.write(f"Debug: Current Poll ID: {poll_id}")
+        # Check if there are any responses
+        responses_data = supabase.table("responses").select("*").eq("poll_id", poll_id).execute()
+        responses = responses_data.data if responses_data else []
 
-    # Download Responses as Excel functionality
-    if st.button("Download Responses as Excel", key="download_responses"):
-        responses_data = supabase.table("responses").select("*").eq("poll_id", poll_id).execute()
-        responses = responses_data.data
-        
-        if not responses:
-            st.warning("No responses available for this poll.")
-        else:
-            headers = ["id", "name", "email"]
-            data = []
-            for response in responses:
-                row = [response["id"], response["name"], response["email"]]
-                for i, answer in enumerate(response["responses"]):
-                    filename, url = extract_file_info(answer)
-                    if url:  # If it's a file upload question
-                        headers.extend([f"q_{i+1}_file_name", f"q_{i+1}_file_URL"])
-                        row.extend([filename, url])
-                    else:
-                        headers.append(f"q_{i+1}")
-                        row.append(filename)  # filename here is actually the original answer
-                data.append(row)
-        
-            df = pd.DataFrame(data, columns=headers)
-            st.write(df)
+        if responses:
+            # Show download responses button only if there are responses
+            if st.button("Download Responses as Excel", key="download_responses"):
+                headers = ["id", "name", "email"]
+                data = []
+                for response in responses:
+                    row = [response["id"], response["name"], response["email"]]
+                    for i, answer in enumerate(response["responses"]):
+                        filename, url = extract_file_info(answer)
+                        if url:  # If it's a file upload question
+                            headers.extend([f"q_{i+1}_file_name", f"q_{i+1}_file_URL"])
+                            row.extend([filename, url])
+                        else:
+                            headers.append(f"q_{i+1}")
+                            row.append(filename)  # filename here is actually the original answer
+                    data.append(row)
             
-            # Ensure the Excel file can be downloaded correctly
-            excel_file = BytesIO()
-            with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name='Responses')
-                worksheet = writer.sheets['Responses']
-                for column in worksheet.columns:
-                    max_length = 0
-                    column = [cell for cell in column]
-                    for cell in column:
-                        try:
-                            if len(str(cell.value)) > max_length:
-                                max_length = len(cell.value)
-                        except:
-                            pass
-                    adjusted_width = (max_length + 2)
-                    worksheet.column_dimensions[column[0].column_letter].width = adjusted_width
-            excel_file.seek(0)  # Reset the stream position to the beginning
-            
-            st.download_button(
-                label="Download Excel file",
-                data=excel_file,
-                file_name="responses.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-    # New button for downloading all uploaded files
-    if st.button("Download All Uploaded Files"):
-            with st.spinner("Preparing zip file..."):
-                zip_filename = create_zip_of_uploaded_files(poll_id)
-            
-            # Read the zip file
-            with open(zip_filename, "rb") as f:
-                zip_contents = f.read()
-            
-            # Offer the zip file for download
-            st.download_button(
-                label="Download Zip File",
-                data=zip_contents,
-                file_name=zip_filename,
-                mime="application/zip"
-            )
-            
-            # Clean up: remove the temporary zip file
-            os.remove(zip_filename)
-        
-    st.write(f"Debug: Current Poll ID: {poll_id}")
-    st.write("Debug: Attempting to retrieve responses")
-    try:
-        responses_data = supabase.table("responses").select("*").eq("poll_id", poll_id).execute()
-        st.write("Debug: Raw Supabase response", responses_data)
-        st.write("Debug: Responses data", responses_data.data)
-        st.write(f"Debug: Number of responses: {len(responses_data.data)}")
-    except Exception as e:
-        st.error(f"Error retrieving responses: {str(e)}")
-        st.write("Debug: Full error information", e)
-        st.write("Debug: Error type", type(e).__name__)
+                df = pd.DataFrame(data, columns=headers)
+                
+                # Ensure the Excel file can be downloaded correctly
+                excel_file = BytesIO()
+                with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
+                    df.to_excel(writer, index=False, sheet_name='Responses')
+                    worksheet = writer.sheets['Responses']
+                    for column in worksheet.columns:
+                        max_length = 0
+                        column = [cell for cell in column]
+                        for cell in column:
+                            try:
+                                if len(str(cell.value)) > max_length:
+                                    max_length = len(cell.value)
+                            except:
+                                pass
+                        adjusted_width = (max_length + 2)
+                        worksheet.column_dimensions[column[0].column_letter].width = adjusted_width
+                excel_file.seek(0)  # Reset the stream position to the beginning
+                
+                st.download_button(
+                    label="Download Excel file",
+                    data=excel_file,
+                    file_name="responses.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+
+            # Show download all uploads button only if there are file uploads
+            if any(isinstance(answer, dict) and 'url' in answer for response in responses for answer in response['responses']):
+                if st.button("Download All Uploaded Files", key="download_uploads"):
+                    with st.spinner("Preparing zip file..."):
+                        zip_filename = create_zip_of_uploaded_files(poll_id)
+                    
+                    # Read the zip file
+                    with open(zip_filename, "rb") as f:
+                        zip_contents = f.read()
+                    
+                    # Offer the zip file for download
+                    st.download_button(
+                        label="Download Zip File",
+                        data=zip_contents,
+                        file_name=zip_filename,
+                        mime="application/zip"
+                    )
+                    
+                    # Clean up: remove the temporary zip file
+                    os.remove(zip_filename)
+
+        # Debug information
+        st.write(f"Debug: Current Poll ID: {poll_id}")
+        st.write("Debug: Attempting to retrieve responses")
+        try:
+            responses_data = supabase.table("responses").select("*").eq("poll_id", poll_id).execute()
+            st.write("Debug: Raw Supabase response", responses_data)
+            st.write("Debug: Responses data", responses_data.data)
+            st.write(f"Debug: Number of responses: {len(responses_data.data)}")
+        except Exception as e:
+            st.error(f"Error retrieving responses: {str(e)}")
+            st.write("Debug: Full error information", e)
+            st.write("Debug: Error type", type(e).__name__)
  
 def poll_page():
     st.title("User Poll")
