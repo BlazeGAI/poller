@@ -26,6 +26,44 @@ def extract_file_info(answer):
         return ', '.join(answer), ''  # Join list items with comma and space
     return str(answer), ''  # Convert to string for all other types
 
+def admin_registration():
+    st.title("Admin Registration")
+    
+    first_name = st.text_input("First Name")
+    last_name = st.text_input("Last Name")
+    email = st.text_input("Tiffin University Email")
+    password = st.text_input("Password", type="password")
+    confirm_password = st.text_input("Confirm Password", type="password")
+
+    if st.button("Register"):
+        if not first_name or not last_name or not email or not password:
+            st.error("All fields are required.")
+            return
+
+        if not email.endswith("@tiffin.edu"):
+            st.error("Please use a valid Tiffin University email address.")
+            return
+
+        if password != confirm_password:
+            st.error("Passwords do not match.")
+            return
+
+        try:
+            # Attempt to create a new user in Supabase
+            user = supabase.auth.sign_up({
+                "email": email,
+                "password": password,
+                "options": {
+                    "data": {
+                        "first_name": first_name,
+                        "last_name": last_name
+                    }
+                }
+            })
+            st.success("Registration successful! Please check your email to verify your account.")
+        except Exception as e:
+            st.error(f"Registration failed: {str(e)}")
+
 # Helper functions
 def get_qr_image_bytes(url):
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
@@ -57,8 +95,57 @@ def admin_page():
     )
     
     st.image("https://tuonlineresources.com/apps/poller/images/logo-icon.png", width=50)  # Small logo in upper-right corner
-    
-    # Input field to enter a custom Poll ID
+
+    # Check if user is logged in
+    if 'user' not in st.session_state or not st.session_state.user:
+        st.warning("Please log in or register to access the admin page.")
+        tab1, tab2 = st.tabs(["Login", "Register"])
+        
+        with tab1:
+            email = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+            if st.button("Login"):
+                try:
+                    user = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                    st.session_state.user = user
+                    st.success("Login successful!")
+                    st.experimental_rerun()
+                except Exception as e:
+                    st.error(f"Login failed: {str(e)}")
+        
+        with tab2:
+            first_name = st.text_input("First Name")
+            last_name = st.text_input("Last Name")
+            reg_email = st.text_input("Tiffin University Email")
+            reg_password = st.text_input("Password", type="password", key="reg_password")
+            confirm_password = st.text_input("Confirm Password", type="password")
+            
+            if st.button("Register"):
+                if not first_name or not last_name or not reg_email or not reg_password:
+                    st.error("All fields are required.")
+                elif not reg_email.endswith("@tiffin.edu"):
+                    st.error("Please use a valid Tiffin University email address.")
+                elif reg_password != confirm_password:
+                    st.error("Passwords do not match.")
+                else:
+                    try:
+                        user = supabase.auth.sign_up({
+                            "email": reg_email,
+                            "password": reg_password,
+                            "options": {
+                                "data": {
+                                    "first_name": first_name,
+                                    "last_name": last_name
+                                }
+                            }
+                        })
+                        st.success("Registration successful! Please check your email to verify your account.")
+                    except Exception as e:
+                        st.error(f"Registration failed: {str(e)}")
+        
+        return  # Exit the function if not logged in
+
+    # If user is logged in, continue with the admin functionality
     custom_poll_id = st.text_input("Enter Custom Poll ID", key="custom_poll_id_input")
     
     if custom_poll_id:
@@ -111,6 +198,13 @@ def admin_page():
     st.write("Current Questions:")
     for i, question in enumerate(questions, 1):
         st.write(f"{i}. {question}")
+
+    # Add logout button
+    if st.button("Logout"):
+        supabase.auth.sign_out()
+        st.session_state.user = None
+        st.success("Logged out successfully!")
+        st.experimental_rerun()
 
     # Download Responses as Excel functionality
     if st.button("Download Responses as Excel", key="download_responses"):
