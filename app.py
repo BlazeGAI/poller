@@ -82,18 +82,6 @@ def generate_poll_id():
 
 # Page functions
 def admin_page():
-    if 'active_tab' not in st.session_state:
-        st.session_state.active_tab = "Login"
-    
-    tab1, tab2 = st.tabs(["Login", "Register"])
-    
-    if st.session_state.active_tab == "Login":
-        tab1.active = True
-    else:
-        tab2.active = True
-    
-    st.title("Admin Page")         
-
     # Add a small logo to the upper-right corner using HTML/CSS
     st.markdown(
         """
@@ -108,10 +96,15 @@ def admin_page():
     )
     
     st.image("https://tuonlineresources.com/apps/poller/images/logo-icon.png", width=50)  # Small logo in upper-right corner
-    
+
     # Check if user is logged in
     if 'user' not in st.session_state or not st.session_state.user:
-        st.warning("Please log in or register to access the admin page.")
+        st.title("Admin Login")
+        
+        if 'active_tab' not in st.session_state:
+            st.session_state.active_tab = "Login"
+        
+        tab1, tab2 = st.tabs(["Login", "Register"])
         
         with tab1:
             email = st.text_input("Email", key="login_email")
@@ -155,13 +148,21 @@ def admin_page():
                                 }
                             })
                             st.success("Registration successful! Please log in with your new credentials.")
-                            # Switch to the login tab
                             st.session_state.active_tab = "Login"
                             st.rerun()
                         except Exception as e:
                             st.error(f"Registration failed: {str(e)}")
-        
-        return  # Exit the function if not logged in
+    else:
+        # User is logged in, show admin content
+        st.title("Admin Page")
+
+        # Add logout button to sidebar
+        with st.sidebar:
+            if st.button("Logout"):
+                supabase.auth.sign_out()
+                st.session_state.user = None
+                st.success("Logged out successfully!")
+                st.rerun()
 
     # If user is logged in, continue with the admin functionality
     custom_poll_id = st.text_input("Enter Custom Poll ID", key="custom_poll_id_input")
@@ -216,13 +217,6 @@ def admin_page():
     st.write("Current Questions:")
     for i, question in enumerate(questions, 1):
         st.write(f"{i}. {question}")
-
-    # Add logout button
-    if st.button("Logout"):
-        supabase.auth.sign_out()
-        st.session_state.user = None
-        st.success("Logged out successfully!")
-        st.rerun()
 
     # Download Responses as Excel functionality
     if st.button("Download Responses as Excel", key="download_responses"):
@@ -518,14 +512,22 @@ def main():
     query_params = st.experimental_get_query_params()
     
     # Add logo and description to the sidebar
-    st.sidebar.image("https://tuonlineresources.com/apps/poller/images/logo-256.png", use_column_width=True)  # Add the logo
-    st.sidebar.markdown("Poller+")  # Add the app name
-    st.sidebar.markdown("Polling and information gathering for Tiffin University research. Private and secure.")  # Add app description
+    with st.sidebar:
+        st.image("https://tuonlineresources.com/apps/poller/images/logo-256.png", use_column_width=True)
+        st.markdown("Poller+")
+        st.markdown("Polling and information gathering for Tiffin University research. Private and secure.")
+        
+        # Add logout button if user is logged in
+        if 'user' in st.session_state and st.session_state.user:
+            if st.button("Logout"):
+                supabase.auth.sign_out()
+                st.session_state.user = None
+                st.success("Logged out successfully!")
+                st.rerun()
     
     if 'page' in query_params and query_params['page'][0] == 'poll':
         poll_page()
     else:
-        st.sidebar.title("Navigation")
         page = st.sidebar.radio("Select a page", ["Admin", "Poll", "Results"], key="page_radio")
 
         if page == "Admin":
