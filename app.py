@@ -305,37 +305,37 @@ def admin_page():
                 st.error(f"Error retrieving responses: {str(e)}")
                 st.write("Debug: Full error information", e)
                 st.write("Debug: Error type", type(e).__name__)
- 
+
 def poll_page():
     st.title("User Poll")
 
     query_params = st.experimental_get_query_params()
     poll_id = query_params.get('poll_id', [None])[0]
 
-          if not poll_id:
-                if 'current_poll_id' in st.session_state:
-                    poll_id = st.session_state.current_poll_id
-                    st.write(f"Currently selected poll: {poll_id}")
-                else:
-                    poll_id = st.text_input("Enter Poll ID")
-        
-            if not poll_id:
-                st.error("Invalid poll ID. Please use the provided QR code or URL to access the poll.")
-                return
-        
-            poll_data = supabase.table("polls").select("*").eq("id", poll_id).execute()
-            if not poll_data.data or not poll_data.data[0]["active"]:
-                st.error("This poll is not active or does not exist.")
-                return
-        
-            questions = poll_data.data[0]["questions"]
-        
-            if not questions:
-                st.warning("No questions available for this poll.")
-            else:
-                st.write(f"Poll ID: {poll_id}")
-                name = st.text_input("Name")
-                email = st.text_input("Email")
+    if not poll_id:
+        if 'current_poll_id' in st.session_state:
+            poll_id = st.session_state.current_poll_id
+            st.write(f"Currently selected poll: {poll_id}")
+        else:
+            poll_id = st.text_input("Enter Poll ID")
+
+    if not poll_id:
+        st.error("Invalid poll ID. Please use the provided QR code or URL to access the poll.")
+        return
+
+    poll_data = supabase.table("polls").select("*").eq("id", poll_id).execute()
+    if not poll_data.data or not poll_data.data[0]["active"]:
+        st.error("This poll is not active or does not exist.")
+        return
+
+    questions = poll_data.data[0]["questions"]
+
+    if not questions:
+        st.warning("No questions available for this poll.")
+    else:
+        st.write(f"Poll ID: {poll_id}")
+        name = st.text_input("Name")
+        email = st.text_input("Email")
 
         user_responses = []
         file_url = None  # Placeholder for the file URL
