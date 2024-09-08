@@ -12,6 +12,8 @@ from supabase import create_client, Client
 import zipfile
 from datetime import datetime
 import requests
+import plotly.express as px
+import plotly.graph_objects as go
 
 # Supabase credentials
 SUPABASE_URL = "https://czivxiadenrdpxebnqpu.supabase.co"  # Replace with your actual Supabase URL
@@ -449,29 +451,87 @@ def results_page():
     poll_id = st.text_input("Enter Poll ID", value=default_poll_id)
     
     if poll_id:
-        all_questions = supabase.table("polls").select("questions").eq("id", poll_id).execute()
+        poll_data = supabase.table("polls").select("*").eq("id", poll_id).execute()
         all_responses = supabase.table("responses").select("*").eq("poll_id", poll_id).execute()
         
-        questions = all_questions.data[0]["questions"] if all_questions.data else []
+        if not poll_data.data:
+            st.warning("No poll found with this ID.")
+            return
+
+        poll = poll_data.data[0]
+        questions = poll["questions"]
         responses = all_responses.data
+
+        st.write(f"Poll ID: {poll_id}")
+        st.write(f"Poll created at: {poll.get('created_at', 'Not available')}")
+        st.write(f"Last updated at: {poll.get('updated_at', 'Not available')}")
+        st.write(f"Poll status: {'Active' if poll['active'] else 'Inactive'}")
 
         if not questions:
             st.warning("No questions available for this poll.")
         elif not responses:
             st.write("No responses yet for this poll.")
         else:
-            for i, question in enumerate(questions):
-                st.write(f"\nQuestion {i+1}: {question}")
-                options = ["Yes", "No", "Maybe"]
-                counts = {option: sum(1 for r in responses if r["responses"][i] == option) for option in options}
-                
-                st.write("Response Counts:")
-                for option, count in counts.items():
-                    st.write(f"{option}: {count}")
-                
-                st.bar_chart(counts)
-
             st.write(f"\nTotal Responses: {len(responses)}")
+            
+            # Question selection
+            selected_questions = st.multiselect("Select questions to visualize", questions, default=questions[0])
+            
+            # Visual type selection
+            visual_type = st.selectbox("Select visualization type", ["Bar Chart", "Pie Chart", "Scatter Plot"])
+            
+            if selected_questions:
+                for question in selected_questions:
+                    q_index = questions.index(question)
+                    
+                    # Count responses
+                    answer_counts = {}
+                    for response in responses:
+                        answer = response["responses"][q_index]
+                        if isinstance(answer, list):
+                            answer = ', '.join(answer)  # Handle multiselect answers
+                        elif isinstance(answer, dict) and 'filename' in answer:
+                            answer = f"File: {answer['filename']}"
+                        answer_counts[str(answer)] = answer_counts.get(str(answer), 0) + 1
+                    
+                    # Create DataFrame for visualization
+                    df = pd.DataFrame(list(answer_counts.items()), columns=['Answer', 'Count'])
+                    
+                    # Create and display visualization
+                    st.write(f"\nQuestion: {question}")
+                    if visual_type == "Bar Chart":
+                        fig = px.bar(df, x='Answer', y='Count', title=f"Responses for: {question}")
+                    elif visual_type == "Pie Chart":
+                        fig = px.pie(df, values='Count', names='Answer', title=f"Responses for: {question}")
+                    elif visual_type == "Scatter Plot":
+                        fig = px.scatter(df, x='Answer', y='Count', size='Count', title=f"Responses for: {question}")
+                    
+                    st.plotly_chart(fig)
+            
+            # Comparison of multiple questions
+            if len(selected_questions) > 1:
+                st.write("\nComparison of Selected Questions")
+                comparison_data = []
+                for question in selected_questions:
+                    q_index = questions.index(question)
+                    for response in responses:
+                        answer = response["responses"][q_index]
+                        if isinstance(answer, list):
+                            answer = ', '.join(answer)
+                        elif isinstance(answer, dict) and 'filename' in answer:
+                            answer = f"File: {answer['filename']}"
+                        comparison_data.append({'Question': question, 'Answer': str(answer)})
+                
+                df_comparison = pd.DataFrame(comparison_data)
+                
+                if visual_type == "Bar Chart":
+                    fig = px.bar(df_comparison, x='Question', color='Answer', title="Comparison of Responses")
+                elif visual_type == "Pie Chart":
+                    fig = px.sunburst(df_comparison, path=['Question', 'Answer'], title="Comparison of Responses")
+                elif visual_type == "Scatter Plot":
+                    fig = px.scatter(df_comparison, x='Question', color='Answer', title="Comparison of Responses")
+                
+                st.plotly_chart(fig)
 
 def create_zip_of_uploaded_files(poll_id):
     # Get all responses for this poll
