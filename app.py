@@ -84,7 +84,6 @@ def generate_poll_id():
 
 # Page functions
 def admin_page():
-    # Add a small logo to the upper-right corner using HTML/CSS
     st.markdown(
         """
         <style>
@@ -97,12 +96,8 @@ def admin_page():
         unsafe_allow_html=True
     )
     
-    st.image("https://tuonlineresources.com/apps/poller/images/logo-icon.png", width=50)  # Small logo in upper-right corner
+    st.image("https://tuonlineresources.com/apps/poller/images/logo-icon.png", width=50)
 
-    # Initialize poll_id
-    poll_id = st.session_state.get('poll_id', None)
-
-    # Check if user is logged in
     if 'user' not in st.session_state or not st.session_state.user:
         st.title("Admin Login")
         
@@ -118,6 +113,7 @@ def admin_page():
                 try:
                     user = supabase.auth.sign_in_with_password({"email": email, "password": password})
                     st.session_state.user = user
+                    st.session_state.user_id = user.user.id  # Store user ID in session state
                     st.success("Login successful!")
                     st.rerun()
                 except Exception as e:
@@ -158,7 +154,6 @@ def admin_page():
                         except Exception as e:
                             st.error(f"Registration failed: {str(e)}")
     else:
-        # User is logged in, show admin content
         st.title("Admin Page")
 
         custom_poll_id = st.text_input("Enter Custom Poll ID", key="custom_poll_id_input")
@@ -174,7 +169,6 @@ def admin_page():
         st.code(poll_id)
         st.write("(Use this ID to view results or share with other admins)")
 
-        # Check if poll exists in Supabase
         try:
             poll_data = supabase.table("polls").select("*").eq("id", poll_id).execute()
             poll_active = False
@@ -190,11 +184,21 @@ def admin_page():
             else:
                 st.warning("Poll is inactive.")
 
-            # Save poll status to Supabase
+            current_time = datetime.now().isoformat()
             if poll_data.data:
-                supabase.table("polls").update({"active": poll_active}).eq("id", poll_id).execute()
+                supabase.table("polls").update({
+                    "active": poll_active,
+                    "updated_at": current_time
+                }).eq("id", poll_id).execute()
             else:
-                supabase.table("polls").insert({"id": poll_id, "questions": questions, "active": poll_active}).execute()
+                supabase.table("polls").insert({
+                    "id": poll_id,
+                    "questions": questions,
+                    "active": poll_active,
+                    "created_at": current_time,
+                    "updated_at": current_time,
+                    "created_by": st.session_state.user_id
+                }).execute()
         except Exception as e:
             st.error(f"Error querying Supabase: {e}")
 
@@ -459,67 +463,101 @@ def poll_page():
 
 def results_page():
     st.title("Poll Results")
-    
-    default_poll_id = st.session_state.get('poll_id', "")
-    poll_id = st.text_input("Enter Poll ID", value=default_poll_id)
-    
-    if poll_id:
-        poll_data = supabase.table("polls").select("*").eq("id", poll_id).execute()
-        all_responses = supabase.table("responses").select("*").eq("poll_id", poll_id).execute()
+
+    current_user_id = st.session_state.user_id
+    all_polls = supabase.table("polls").select("id, title").eq("created_by", current_user_id).execute()
+
+    if not all_polls.data:
+        st.warning("You haven't created any polls yet.")
+        return
+
+    poll_options = {poll['id']: poll.get('title', poll['id']) for poll in all_polls.data}
+
+    current_poll_id = st.session_state.get('current_poll_id') or all_polls.data[0]['id']
+
+    selected_poll_id = st.selectbox(
+        "Select a poll to view results",
+        options=list(poll_options.keys()),
+        format_func=lambda x: poll_options[x],
+        index=list(poll_options.keys()).index(current_poll_id) if current_poll_id in poll_options else 0
+    )
+
+    poll_data = supabase.table("polls").select("*").eq("id", selected_poll_id).execute()
+    all_responses = supabase.table("responses").select("*").eq("poll_id", selected_poll_id).execute()
+
+    if not poll_data.data:
+        st.warning("No poll found with this ID.")
+        return
+
+    poll = poll_data.data[0]
+    questions = poll["questions"]
+    responses = all_responses.data
+
+    st.write(f"Poll ID: {selected_poll_id}")
+    st.write(f"Poll Title: {poll_options[selected_poll_id]}")
+    st.write(f"Poll created at: {poll.get('created_at', 'Not available')}")
+    st.write(f"Last updated at: {poll.get('updated_at', 'Not available')}")
+    st.write(f"Poll status: {'Active' if poll['active'] else 'Inactive'}")
+
+    if not questions:
+        st.warning("No questions available for this poll.")
+    elif not responses:
+        st.write("No responses yet for this poll.")
+    else:
+        st.write(f"\nTotal Responses: {len(responses)}")
         
-        if not poll_data.data:
-            st.warning("No poll found with this ID.")
-            return
-
-        poll = poll_data.data[0]
-        questions = poll["questions"]
-        responses = all_responses.data
-
-        st.write(f"Poll ID: {poll_id}")
-        st.write(f"Poll created at: {poll.get('created_at', 'Not available')}")
-        st.write(f"Last updated at: {poll.get('updated_at', 'Not available')}")
-        st.write(f"Poll status: {'Active' if poll['active'] else 'Inactive'}")
-
-        if not questions:
-            st.warning("No questions available for this poll.")
-        elif not responses:
-            st.write("No responses yet for this poll.")
-        else:
-            st.write(f"\nTotal Responses: {len(responses)}")
+        selected_questions = st.multiselect("Select questions to visualize", questions, default=questions[0])
+        
+        visual_type = st.selectbox("Select visualization type", ["Bar Chart", "Pie Chart", "Scatter Plot"])
+        
+        if selected_questions:
+            for question in selected_questions:
+                q_index = questions.index(question)
+                
+                answer_counts = {}
+                for response in responses:
+                    answer = response["responses"][q_index]
+                    if isinstance(answer, list):
+                        answer = ', '.join(answer)
+                    elif isinstance(answer, dict) and 'filename' in answer:
+                        answer = f"File: {answer['filename']}"
+                    answer_counts[str(answer)] = answer_counts.get(str(answer), 0) + 1
+                
+                df = pd.DataFrame(list(answer_counts.items()), columns=['Answer', 'Count'])
+                
+                st.write(f"\nQuestion: {question}")
+                if visual_type == "Bar Chart":
+                    fig = px.bar(df, x='Answer', y='Count', title=f"Responses for: {question}")
+                elif visual_type == "Pie Chart":
+                    fig = px.pie(df, values='Count', names='Answer', title=f"Responses for: {question}")
+                elif visual_type == "Scatter Plot":
+                    fig = px.scatter(df, x='Answer', y='Count', size='Count', title=f"Responses for: {question}")
+                
+                st.plotly_chart(fig)
+        
+        if len(selected_questions) > 1:
+            st.write("\nComparison of Selected Questions")
+            comparison_data = []
+            for question in selected_questions:
+                q_index = questions.index(question)
+                for response in responses:
+                    answer = response["responses"][q_index]
+                    if isinstance(answer, list):
+                        answer = ', '.join(answer)
+                    elif isinstance(answer, dict) and 'filename' in answer:
+                        answer = f"File: {answer['filename']}"
+                    comparison_data.append({'Question': question, 'Answer': str(answer)})
             
-            # Question selection
-            selected_questions = st.multiselect("Select questions to visualize", questions, default=questions[0])
+            df_comparison = pd.DataFrame(comparison_data)
             
-            # Visual type selection
-            visual_type = st.selectbox("Select visualization type", ["Bar Chart", "Pie Chart", "Scatter Plot"])
+            if visual_type == "Bar Chart":
+                fig = px.bar(df_comparison, x='Question', color='Answer', title="Comparison of Responses")
+            elif visual_type == "Pie Chart":
+                fig = px.sunburst(df_comparison, path=['Question', 'Answer'], title="Comparison of Responses")
+            elif visual_type == "Scatter Plot":
+                fig = px.scatter(df_comparison, x='Question', color='Answer', title="Comparison of Responses")
             
-            if selected_questions:
-                for question in selected_questions:
-                    q_index = questions.index(question)
-                    
-                    # Count responses
-                    answer_counts = {}
-                    for response in responses:
-                        answer = response["responses"][q_index]
-                        if isinstance(answer, list):
-                            answer = ', '.join(answer)  # Handle multiselect answers
-                        elif isinstance(answer, dict) and 'filename' in answer:
-                            answer = f"File: {answer['filename']}"
-                        answer_counts[str(answer)] = answer_counts.get(str(answer), 0) + 1
-                    
-                    # Create DataFrame for visualization
-                    df = pd.DataFrame(list(answer_counts.items()), columns=['Answer', 'Count'])
-                    
-                    # Create and display visualization
-                    st.write(f"\nQuestion: {question}")
-                    if visual_type == "Bar Chart":
-                        fig = px.bar(df, x='Answer', y='Count', title=f"Responses for: {question}")
-                    elif visual_type == "Pie Chart":
-                        fig = px.pie(df, values='Count', names='Answer', title=f"Responses for: {question}")
-                    elif visual_type == "Scatter Plot":
-                        fig = px.scatter(df, x='Answer', y='Count', size='Count', title=f"Responses for: {question}")
-                    
-                    st.plotly_chart(fig)
+            st.plotly_chart(fig)
             
             # Comparison of multiple questions
             if len(selected_questions) > 1:
