@@ -96,7 +96,7 @@ def admin_page():
     
     st.image("https://tuonlineresources.com/apps/poller/images/logo-icon.png", width=50)  # Small logo in upper-right corner
 
-      # Check if user is logged in
+ # Check if user is logged in
     if 'user' not in st.session_state or not st.session_state.user:
         st.warning("Please log in or register to access the admin page.")
         tab1, tab2 = st.tabs(["Login", "Register"])
@@ -142,7 +142,10 @@ def admin_page():
                                     }
                                 }
                             })
-                            st.success("Registration successful! Please check your email to verify your account.")
+                            st.success("Registration successful! Please log in with your new credentials.")
+                            # Switch to the login tab
+                            st.session_state.active_tab = "Login"
+                            st.experimental_rerun()
                         except Exception as e:
                             st.error(f"Registration failed: {str(e)}")
         
