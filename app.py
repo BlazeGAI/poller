@@ -97,6 +97,9 @@ def admin_page():
     
     st.image("https://tuonlineresources.com/apps/poller/images/logo-icon.png", width=50)  # Small logo in upper-right corner
 
+    # Initialize poll_id
+    poll_id = st.session_state.get('poll_id', None)
+
     # Check if user is logged in
     if 'user' not in st.session_state or not st.session_state.user:
         st.title("Admin Login")
@@ -209,6 +212,9 @@ def admin_page():
         st.write("Current Questions:")
         for i, question in enumerate(questions, 1):
             st.write(f"{i}. {question}")
+
+    # Debug information
+    st.write(f"Debug: Current Poll ID: {poll_id}")
 
     # Download Responses as Excel functionality
     if st.button("Download Responses as Excel", key="download_responses"):
