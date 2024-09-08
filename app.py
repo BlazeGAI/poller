@@ -18,6 +18,11 @@ SUPABASE_URL = "https://czivxiadenrdpxebnqpu.supabase.co"  # Replace with your a
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6aXZ4aWFkZW5yZHB4ZWJucXB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU1NjgxOTQsImV4cCI6MjA0MTE0NDE5NH0.i_xLmpxQlUfHGq_Hs9DzvaQPWciGD_FZuxAEo0caAvM"  # Replace with your actual Supabase Key
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+def extract_file_info(answer):
+    if isinstance(answer, dict) and 'filename' in answer and 'url' in answer:
+        return answer['filename'], answer['url']
+    return answer, ''
+
 # Helper functions
 def get_qr_image_bytes(url):
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
@@ -112,20 +117,40 @@ def admin_page():
         if not responses:
             st.warning("No responses available for this poll.")
         else:
-            headers = ["id", "name", "email"] + [f"q_{i+1}" for i in range(len(questions))]
-            data = []
-            for response in responses:
-                row = [response["id"], response["name"], response["email"]] + response["responses"]
-                data.append(row)
+                    headers = ["id", "name", "email"]
+                    data = []
+                    for response in responses:
+                        row = [response["id"], response["name"], response["email"]]
+                        for i, answer in enumerate(response["responses"]):
+                            filename, url = extract_file_info(answer)
+                            if url:  # If it's a file upload question
+                                headers.extend([f"q_{i+1}_file_name", f"q_{i+1}_file_URL"])
+                                row.extend([filename, url])
+                            else:
+                                headers.append(f"q_{i+1}")
+                                row.append(filename)  # filename here is actually the original answer
+                        data.append(row)
             
-            df = pd.DataFrame(data, columns=headers)
+                    df = pd.DataFrame(data, columns=headers)
             st.write(df)
             
             # Ensure the Excel file can be downloaded correctly
-            excel_file = BytesIO()
-            with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name='Responses')
-            excel_file.seek(0)  # Reset the stream position to the beginning
+                    excel_file = BytesIO()
+                    with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
+                        df.to_excel(writer, index=False, sheet_name='Responses')
+                        worksheet = writer.sheets['Responses']
+                        for column in worksheet.columns:
+                            max_length = 0
+                            column = [cell for cell in column]
+                            for cell in column:
+                                try:
+                                    if len(str(cell.value)) > max_length:
+                                        max_length = len(cell.value)
+                                except:
+                                    pass
+                            adjusted_width = (max_length + 2)
+                            worksheet.column_dimensions[column[0].column_letter].width = adjusted_width
+                    excel_file.seek(0)  # Reset the stream position to the beginning
             
             st.download_button(
                 label="Download Excel file",
