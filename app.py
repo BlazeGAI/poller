@@ -286,17 +286,25 @@ def admin_page():
                     os.remove(zip_filename)
 
         # Debug information
-        st.write(f"Debug: Current Poll ID: {poll_id}")
-        st.write("Debug: Attempting to retrieve responses")
-        try:
-            responses_data = supabase.table("responses").select("*").eq("poll_id", poll_id).execute()
-            st.write("Debug: Raw Supabase response", responses_data)
-            st.write("Debug: Responses data", responses_data.data)
-            st.write(f"Debug: Number of responses: {len(responses_data.data)}")
-        except Exception as e:
-            st.error(f"Error retrieving responses: {str(e)}")
-            st.write("Debug: Full error information", e)
-            st.write("Debug: Error type", type(e).__name__)
+        # Add a toggle for debug messages at the bottom of the page
+        st.write("---")  # Add a separator line
+        show_debug = st.toggle("Show Debug Messages", value=False)
+
+        if show_debug:
+            st.write("Debug Information:")
+            st.write(f"Debug: Current Poll ID: {poll_id}")
+            if 'responses' in locals():
+                st.write(f"Debug: Number of responses: {len(responses)}")
+            st.write("Debug: Attempting to retrieve responses")
+            try:
+                responses_data = supabase.table("responses").select("*").eq("poll_id", poll_id).execute()
+                st.write("Debug: Raw Supabase response", responses_data)
+                st.write("Debug: Responses data", responses_data.data)
+                st.write(f"Debug: Number of responses: {len(responses_data.data)}")
+            except Exception as e:
+                st.error(f"Error retrieving responses: {str(e)}")
+                st.write("Debug: Full error information", e)
+                st.write("Debug: Error type", type(e).__name__)
  
 def poll_page():
     st.title("User Poll")
