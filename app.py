@@ -80,17 +80,17 @@ def generate_poll_id():
 # Page functions
 def admin_page():
 
-if 'active_tab' not in st.session_state:
-    st.session_state.active_tab = "Login"
-
-tab1, tab2 = st.tabs(["Login", "Register"])
-
-if st.session_state.active_tab == "Login":
-    tab1.active = True
-else:
-    tab2.active = True
-    
-    st.title("Admin Page")
+        if 'active_tab' not in st.session_state:
+            st.session_state.active_tab = "Login"
+        
+        tab1, tab2 = st.tabs(["Login", "Register"])
+        
+        if st.session_state.active_tab == "Login":
+            tab1.active = True
+        else:
+            tab2.active = True
+            
+            st.title("Admin Page")
     
     # Add a small logo to the upper-right corner using HTML/CSS
     st.markdown(
