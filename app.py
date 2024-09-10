@@ -341,62 +341,59 @@ def poll_page():
         name = st.text_input("Name")
         email = st.text_input("Email")
 
-     user_responses = []
-    file_url = None  # Placeholder for the file URL
-    for i, question in enumerate(questions):
-        try:
-            q_type, q_text = question.split(":", 1)
-            q_type = q_type.strip().lower()
-            q_text = q_text.strip()
-        except ValueError:
-            st.error(f"Invalid question format: {question}")
-            continue
-    
-        if q_type == "text":
-            answer = st.text_input(q_text, key=f"q_{i}")
-        elif q_type == "textarea":
-            answer = st.text_area(q_text, key=f"q_{i}")
-        elif q_type == "select":
-            options = q_text.split(":")[1].split(",")
-            answer = st.selectbox(q_text.split(":")[0], options, key=f"q_{i}")
-        elif q_type == "multiselect":
-            options = q_text.split(":")[1].split(",")
-            answer = st.multiselect(q_text.split(":")[0], options, key=f"q_{i}")
-        elif q_type == "slider":
-            min_val, max_val, step = map(int, q_text.split(":")[1].split(","))
-            answer = st.slider(q_text.split(":")[0], min_val, max_val, step, key=f"q_{i}")
-        elif q_type == "number":
-            answer = st.number_input(q_text, key=f"q_{i}")
-        elif q_type == "age":
-            answer = st.number_input(q_text, min_value=0, max_value=150, step=1, value=0, key=f"q_{i}")
-        elif q_type == "date":
-            default_date = datetime.now().date()
-            date_answer = st.date_input(q_text, value=default_date, key=f"q_{i}")
-            answer = date_answer.strftime("%m/%d/%Y") if date_answer else None
-        elif q_type == "time":
-            default_time = datetime.now().time().replace(second=0, microsecond=0)
-            time_answer = st.time_input(q_text, value=default_time, key=f"q_{i}")
-            answer = time_answer.strftime("%H:%M") if time_answer else None
-        elif q_type == "file":
-            uploaded_file = st.file_uploader(q_text, key=f"q_{i}")
-            if uploaded_file is not None:
-                st.write(f"File selected: {uploaded_file.name}")
-                # Store only the necessary file information
-                answer = {
-                    "filename": uploaded_file.name,
-                    "content_type": uploaded_file.type,
-                    "size": uploaded_file.size,
-                    "uploaded": False
-                }
+        user_responses = []
+        file_url = None  # Placeholder for the file URL
+        for i, question in enumerate(questions):
+            try:
+                q_type, q_text = question.split(":", 1)
+                q_type = q_type.strip().lower()
+                q_text = q_text.strip()
+            except ValueError:
+                st.error(f"Invalid question format: {question}")
+                continue
+        
+            if q_type == "text":
+                answer = st.text_input(q_text, key=f"q_{i}")
+            elif q_type == "textarea":
+                answer = st.text_area(q_text, key=f"q_{i}")
+            elif q_type == "select":
+                options = q_text.split(":")[1].split(",")
+                answer = st.selectbox(q_text.split(":")[0], options, key=f"q_{i}")
+            elif q_type == "multiselect":
+                options = q_text.split(":")[1].split(",")
+                answer = st.multiselect(q_text.split(":")[0], options, key=f"q_{i}")
+            elif q_type == "slider":
+                min_val, max_val, step = map(int, q_text.split(":")[1].split(","))
+                answer = st.slider(q_text.split(":")[0], min_val, max_val, step, key=f"q_{i}")
+            elif q_type == "number":
+                answer = st.number_input(q_text, key=f"q_{i}")
+            elif q_type == "age":
+                answer = st.number_input(q_text, min_value=0, max_value=150, step=1, value=0, key=f"q_{i}")
+            elif q_type == "date":
+                default_date = datetime.now().date()
+                date_answer = st.date_input(q_text, value=default_date, key=f"q_{i}")
+                answer = date_answer.strftime("%m/%d/%Y") if date_answer else None
+            elif q_type == "time":
+                default_time = datetime.now().time().replace(second=0, microsecond=0)
+                time_answer = st.time_input(q_text, value=default_time, key=f"q_{i}")
+                answer = time_answer.strftime("%H:%M") if time_answer else None
+            elif q_type == "file":
+                uploaded_file = st.file_uploader(q_text, key=f"q_{i}")
+                if uploaded_file is not None:
+                    st.write(f"File selected: {uploaded_file.name}")
+                    # Store only the necessary file information
+                    answer = {
+                        "filename": uploaded_file.name,
+                        "content_type": uploaded_file.type,
+                        "size": uploaded_file.size,
+                        "uploaded": False
+                    }
+                else:
+                    answer = None
             else:
-                answer = None
-        else:
-            st.error(f"Unknown question type: {q_type}")
-            continue
-    
-        user_responses.append(answer)
-
-            # Ensure only serializable data is appended
+                st.error(f"Unknown question type: {q_type}")
+                continue
+        
             user_responses.append(answer)
 
         if st.button("Submit Responses"):
@@ -450,7 +447,7 @@ def poll_page():
                                 "size": uploaded_file.size,
                                 "uploaded": False
                             }
-        
+                
                 # Prepare response data
                 response_data = {
                     "poll_id": poll_id,
