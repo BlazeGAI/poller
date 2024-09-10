@@ -520,31 +520,40 @@ def results_page():
         
         answer_counts = pd.Series(answers).value_counts()
     
+        # Parse the question text
+        question_parts = question.split(':', 1)
+        if len(question_parts) > 1:
+            question_type = question_parts[0].strip()
+            question_text = question_parts[1].strip()
+        else:
+            question_type = "Question"
+            question_text = question
+    
         # Format the question text
-        formatted_question = f"Results for: {question}"
+        formatted_question = f"Results for {question_type}: {question_text}"
         st.subheader(formatted_question)
     
         try:
             if visual_type == "Bar Chart":
                 if len(answer_counts) == 0:
-                    st.warning(f"No data available for the question: {question}")
+                    st.warning(f"No data available for the question: {question_text}")
                     continue
                 fig = px.bar(x=answer_counts.index, y=answer_counts.values, labels={'x': 'Answer', 'y': 'Count'})
             elif visual_type == "Pie Chart":
                 if len(answer_counts) == 0:
-                    st.warning(f"No data available for the question: {question}")
+                    st.warning(f"No data available for the question: {question_text}")
                     continue
                 fig = px.pie(values=answer_counts.values, names=answer_counts.index)
             elif visual_type == "Scatter Plot":
                 if len(answer_counts) < 2:
-                    st.warning(f"Scatter plot requires at least two different answers for the question: {question}")
+                    st.warning(f"Scatter plot requires at least two different answers for the question: {question_text}")
                     continue
                 fig = px.scatter(x=range(len(answer_counts)), y=answer_counts.values, text=answer_counts.index)
                 fig.update_traces(textposition='top center')
             
             st.plotly_chart(fig)
         except Exception as e:
-            st.error(f"Error creating {visual_type} for question: {question}. Please try a different visualization type.")
+            st.error(f"Error creating {visual_type} for question: {question_text}. Please try a different visualization type.")
             st.error(f"Error details: {str(e)}")
     
         st.write(f"Poll ID: {selected_poll_id}")
