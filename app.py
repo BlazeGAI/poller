@@ -497,6 +497,15 @@ def results_page():
         st.warning("Invalid question format in the database.")
         return
 
+    responses = supabase.table("responses").select("*").eq("poll_id", selected_poll_id).execute()
+
+    if not responses.data:
+        st.warning("No responses available for this poll.")
+        return
+
+    # Display total responses just under the title
+    st.write(f"Total responses: {len(responses.data)}")
+
     selected_questions = st.multiselect(
         "Select questions to visualize",
         options=questions,
@@ -508,31 +517,23 @@ def results_page():
         options=["Bar Chart", "Pie Chart", "Scatter Plot"]
     )
 
-    responses = supabase.table("responses").select("*").eq("poll_id", selected_poll_id).execute()
-
-    if not responses.data:
-        st.warning("No responses available for this poll.")
-        return
-
     for question in selected_questions:
         question_index = questions.index(question)
         answers = [response['responses'][question_index] for response in responses.data if question_index < len(response['responses'])]
         
         answer_counts = pd.Series(answers).value_counts()
-    
+
         # Parse the question text
         question_parts = question.split(':', 1)
         if len(question_parts) > 1:
-            question_type = question_parts[0].strip()
             question_text = question_parts[1].strip()
         else:
-            question_type = "Question"
-            question_text = question
-    
+            question_text = question.strip()
+
         # Format the question text
-        formatted_question = f"Results for {question_type}: {question_text}"
+        formatted_question = f"Results for: {question_text}"
         st.subheader(formatted_question)
-    
+
         try:
             if visual_type == "Bar Chart":
                 if len(answer_counts) == 0:
@@ -555,12 +556,16 @@ def results_page():
         except Exception as e:
             st.error(f"Error creating {visual_type} for question: {question_text}. Please try a different visualization type.")
             st.error(f"Error details: {str(e)}")
-    
-        st.write(f"Poll ID: {selected_poll_id}")
-        st.write(f"Poll created at: {poll.get('created_at', 'Not available')}")
-        st.write(f"Last updated at: {poll.get('updated_at', 'Not available')}")
-        st.write(f"Poll status: {'Active' if poll['active'] else 'Inactive'}")
-        st.write(f"Total responses: {len(responses.data)}")
+
+    # Add a separator line
+    st.markdown("---")
+
+    # Display metadata at the bottom of the page
+    st.subheader("Poll Metadata")
+    st.write(f"Poll ID: {selected_poll_id}")
+    st.write(f"Poll created at: {poll.get('created_at', 'Not available')}")
+    st.write(f"Last updated at: {poll.get('updated_at', 'Not available')}")
+    st.write(f"Poll status: {'Active' if poll['active'] else 'Inactive'}")
 
 
 def create_zip_of_uploaded_files(poll_id):
