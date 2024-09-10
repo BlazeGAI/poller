@@ -473,9 +473,21 @@ def results_page():
 
     poll_options = {}
     for poll in all_polls.data:
-        questions = json.loads(poll['questions'])
-        # Use the first question as a title, or create a generic title if there are no questions
-        title = f"Poll: {questions[0][:30]}..." if questions else f"Poll {poll['id']}"
+        questions = poll['questions']
+        # Check if questions is already a list
+        if isinstance(questions, list):
+            title = f"Poll: {questions[0][:30]}..." if questions else f"Poll {poll['id']}"
+        elif isinstance(questions, str):
+            # If it's a string, try to parse it as JSON
+            try:
+                questions_list = json.loads(questions)
+                title = f"Poll: {questions_list[0][:30]}..." if questions_list else f"Poll {poll['id']}"
+            except json.JSONDecodeError:
+                # If it's not valid JSON, use it as is
+                title = f"Poll: {questions[:30]}..."
+        else:
+            # If it's neither a list nor a string, use a generic title
+            title = f"Poll {poll['id']}"
         poll_options[poll['id']] = title
 
     current_poll_id = st.session_state.get('current_poll_id') or all_polls.data[0]['id']
@@ -495,7 +507,18 @@ def results_page():
         return
 
     poll = poll_data.data[0]
-    questions = json.loads(poll["questions"])
+    questions = poll["questions"]
+    # Check if questions is already a list
+    if isinstance(questions, str):
+        try:
+            questions = json.loads(questions)
+        except json.JSONDecodeError:
+            # If it's not valid JSON, split it into a list
+            questions = questions.split('\n')
+    elif not isinstance(questions, list):
+        st.warning("Invalid question format in the database.")
+        return
+
     responses = all_responses.data
 
     st.write(f"Poll ID: {selected_poll_id}")
