@@ -464,14 +464,18 @@ def poll_page():
 def results_page():
     st.title("Poll Results")
 
-    current_user_id = st.session_state.user_id
-    all_polls = supabase.table("polls").select("id, questions").eq("created_by", current_user_id).execute()
-
-    if not all_polls.data:
-        st.warning("You haven't created any polls yet.")
+    if 'user_id' not in st.session_state:
+        st.warning("Please log in to view poll results.")
         return
 
-    poll_options = {poll['id']: f"Poll {poll['id']}" for poll in all_polls.data}
+    current_user_id = st.session_state.user_id
+    all_polls = supabase.table("polls").select("id, questions, active").eq("created_by", current_user_id).execute()
+
+    if not all_polls.data:
+        st.info("You haven't created any polls yet.")
+        return
+
+    poll_options = {poll['id']: f"Poll {poll['id']} ({'Active' if poll['active'] else 'Inactive'})" for poll in all_polls.data}
 
     selected_poll_id = st.selectbox(
         "Select a poll to view results",
@@ -488,6 +492,10 @@ def results_page():
     poll = poll_data.data[0]
     questions = poll["questions"]
 
+    if not poll['active']:
+        st.warning("This poll is currently inactive. Activate the poll to collect responses.")
+        return
+
     if isinstance(questions, str):
         try:
             questions = json.loads(questions)
@@ -500,7 +508,7 @@ def results_page():
     responses = supabase.table("responses").select("*").eq("poll_id", selected_poll_id).execute()
 
     if not responses.data:
-        st.warning("No responses available for this poll.")
+        st.info("This poll has not received any responses yet.")
         return
 
     # Display total responses just under the title
@@ -518,43 +526,41 @@ def results_page():
     )
 
     for question in selected_questions:
+        question_parts = question.split(":", 1)
+        if len(question_parts) > 1:
+            q_text = question_parts[1].strip()
+        else:
+            q_text = question.strip()
+
+        formatted_question = f"Results for: {q_text}"
+        st.subheader(formatted_question)
+
         question_index = questions.index(question)
         answers = [response['responses'][question_index] for response in responses.data if question_index < len(response['responses'])]
         
         answer_counts = pd.Series(answers).value_counts()
 
-        # Parse the question text
-        question_parts = question.split(':', 1)
-        if len(question_parts) > 1:
-            question_text = question_parts[1].strip()
-        else:
-            question_text = question.strip()
-
-        # Format the question text
-        formatted_question = f"Results for: {question_text}"
-        st.subheader(formatted_question)
-
         try:
             if visual_type == "Bar Chart":
                 if len(answer_counts) == 0:
-                    st.warning(f"No data available for the question: {question_text}")
+                    st.warning(f"No data available for the question: {q_text}")
                     continue
                 fig = px.bar(x=answer_counts.index, y=answer_counts.values, labels={'x': 'Answer', 'y': 'Count'})
             elif visual_type == "Pie Chart":
                 if len(answer_counts) == 0:
-                    st.warning(f"No data available for the question: {question_text}")
+                    st.warning(f"No data available for the question: {q_text}")
                     continue
                 fig = px.pie(values=answer_counts.values, names=answer_counts.index)
             elif visual_type == "Scatter Plot":
                 if len(answer_counts) < 2:
-                    st.warning(f"Scatter plot requires at least two different answers for the question: {question_text}")
+                    st.warning(f"Scatter plot requires at least two different answers for the question: {q_text}")
                     continue
                 fig = px.scatter(x=range(len(answer_counts)), y=answer_counts.values, text=answer_counts.index)
                 fig.update_traces(textposition='top center')
             
             st.plotly_chart(fig)
         except Exception as e:
-            st.error(f"Error creating {visual_type} for question: {question_text}. Please try a different visualization type.")
+            st.error(f"Error creating {visual_type} for question: {q_text}. Please try a different visualization type.")
             st.error(f"Error details: {str(e)}")
 
     # Add a separator line
