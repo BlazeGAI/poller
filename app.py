@@ -324,7 +324,7 @@ def poll_page():
             poll_id = st.text_input("Enter Poll ID")
 
     if not poll_id:
-        st.error("Invalid poll ID. Please use the provided QR code or URL to access the poll.")
+        st.error("Please enter a valid poll ID.")
         return
 
     poll_data = supabase.table("polls").select("*").eq("id", poll_id).execute()
