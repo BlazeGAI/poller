@@ -1,4 +1,4 @@
-# Poller+: Educational Polling Application
+# Poller+: Polling Application
 
 ## Overview
 
