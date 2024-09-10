@@ -471,17 +471,14 @@ def results_page():
         st.warning("You haven't created any polls yet.")
         return
 
-    # Create a dictionary of poll options
     poll_options = {poll['id']: f"Poll {poll['id']}" for poll in all_polls.data}
 
-    # Let admin choose which poll to see
     selected_poll_id = st.selectbox(
         "Select a poll to view results",
         options=list(poll_options.keys()),
         format_func=lambda x: poll_options[x]
     )
 
-    # Fetch the selected poll data
     poll_data = supabase.table("polls").select("*").eq("id", selected_poll_id).execute()
     
     if not poll_data.data:
@@ -491,7 +488,6 @@ def results_page():
     poll = poll_data.data[0]
     questions = poll["questions"]
 
-    # Ensure questions is a list
     if isinstance(questions, str):
         try:
             questions = json.loads(questions)
@@ -501,49 +497,54 @@ def results_page():
         st.warning("Invalid question format in the database.")
         return
 
-    # Let admin choose which questions to visualize
     selected_questions = st.multiselect(
         "Select questions to visualize",
         options=questions,
-        default=questions[:1]  # Default to first question
+        default=questions[:1]
     )
 
-    # Let admin choose the type of visualization
     visual_type = st.selectbox(
         "Select visualization type",
         options=["Bar Chart", "Pie Chart", "Scatter Plot"]
     )
 
-    # Fetch responses for the selected poll
     responses = supabase.table("responses").select("*").eq("poll_id", selected_poll_id).execute()
 
     if not responses.data:
         st.warning("No responses available for this poll.")
         return
 
-    # Process and visualize the data
     for question in selected_questions:
         st.subheader(question)
         
-        # Collect answers for this question
         question_index = questions.index(question)
         answers = [response['responses'][question_index] for response in responses.data if question_index < len(response['responses'])]
         
-        # Count occurrences of each answer
         answer_counts = pd.Series(answers).value_counts()
 
-        if visual_type == "Bar Chart":
-            fig = px.bar(x=answer_counts.index, y=answer_counts.values, labels={'x': 'Answer', 'y': 'Count'})
-        elif visual_type == "Pie Chart":
-            fig = px.pie(values=answer_counts.values, names=answer_counts.index)
-        elif visual_type == "Scatter Plot":
-            # For scatter plot, we'll use index as x and count as y
-            fig = px.scatter(x=range(len(answer_counts)), y=answer_counts.values, text=answer_counts.index)
-            fig.update_traces(textposition='top center')
+        try:
+            if visual_type == "Bar Chart":
+                if len(answer_counts) == 0:
+                    st.warning(f"No data available for the question: {question}")
+                    continue
+                fig = px.bar(x=answer_counts.index, y=answer_counts.values, labels={'x': 'Answer', 'y': 'Count'})
+            elif visual_type == "Pie Chart":
+                if len(answer_counts) == 0:
+                    st.warning(f"No data available for the question: {question}")
+                    continue
+                fig = px.pie(values=answer_counts.values, names=answer_counts.index)
+            elif visual_type == "Scatter Plot":
+                if len(answer_counts) < 2:
+                    st.warning(f"Scatter plot requires at least two different answers for the question: {question}")
+                    continue
+                fig = px.scatter(x=range(len(answer_counts)), y=answer_counts.values, text=answer_counts.index)
+                fig.update_traces(textposition='top center')
+            
+            st.plotly_chart(fig)
+        except Exception as e:
+            st.error(f"Error creating {visual_type} for question: {question}. Please try a different visualization type.")
+            st.error(f"Error details: {str(e)}")
 
-        st.plotly_chart(fig)
-
-    # Display poll details
     st.write(f"Poll ID: {selected_poll_id}")
     st.write(f"Poll created at: {poll.get('created_at', 'Not available')}")
     st.write(f"Last updated at: {poll.get('updated_at', 'Not available')}")
