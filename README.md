@@ -1,4 +1,4 @@
-# Poller+: AI-Assisted Educational Polling Application
+# Poller+: Educational Polling Application
 
 ## Overview
 
