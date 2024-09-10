@@ -515,12 +515,15 @@ def results_page():
         return
 
     for question in selected_questions:
-        st.subheader(question)
-        
         question_index = questions.index(question)
         answers = [response['responses'][question_index] for response in responses.data if question_index < len(response['responses'])]
         
         answer_counts = pd.Series(answers).value_counts()
+
+        # Format the question text
+        unique_answers = ", ".join(answer_counts.index)
+        formatted_question = f"Results for: {question} {unique_answers}"
+        st.subheader(formatted_question)
 
         try:
             if visual_type == "Bar Chart":
