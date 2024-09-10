@@ -465,13 +465,18 @@ def results_page():
     st.title("Poll Results")
 
     current_user_id = st.session_state.user_id
-    all_polls = supabase.table("polls").select("id, title").eq("created_by", current_user_id).execute()
+    all_polls = supabase.table("polls").select("id, questions").eq("created_by", current_user_id).execute()
 
     if not all_polls.data:
         st.warning("You haven't created any polls yet.")
         return
 
-    poll_options = {poll['id']: poll.get('title', poll['id']) for poll in all_polls.data}
+    poll_options = {}
+    for poll in all_polls.data:
+        questions = json.loads(poll['questions'])
+        # Use the first question as a title, or create a generic title if there are no questions
+        title = f"Poll: {questions[0][:30]}..." if questions else f"Poll {poll['id']}"
+        poll_options[poll['id']] = title
 
     current_poll_id = st.session_state.get('current_poll_id') or all_polls.data[0]['id']
 
@@ -490,7 +495,7 @@ def results_page():
         return
 
     poll = poll_data.data[0]
-    questions = poll["questions"]
+    questions = json.loads(poll["questions"])
     responses = all_responses.data
 
     st.write(f"Poll ID: {selected_poll_id}")
@@ -502,9 +507,11 @@ def results_page():
     if not questions:
         st.warning("No questions available for this poll.")
     elif not responses:
-        st.write("No responses yet for this poll.")
+        st.warning("No responses available for this poll.")
     else:
-        st.write(f"\nTotal Responses: {len(responses)}")
+        for i, question in enumerate(questions, 1):
+            st.write(f"Question {i}: {question}")
+            st.write(f"\nTotal Responses: {len(responses)}")
         
         selected_questions = st.multiselect("Select questions to visualize", questions, default=questions[0])
         
