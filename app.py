@@ -471,148 +471,85 @@ def results_page():
         st.warning("You haven't created any polls yet.")
         return
 
-    poll_options = {}
-    for poll in all_polls.data:
-        questions = poll['questions']
-        # Check if questions is already a list
-        if isinstance(questions, list):
-            title = f"Poll: {questions[0][:30]}..." if questions else f"Poll {poll['id']}"
-        elif isinstance(questions, str):
-            # If it's a string, try to parse it as JSON
-            try:
-                questions_list = json.loads(questions)
-                title = f"Poll: {questions_list[0][:30]}..." if questions_list else f"Poll {poll['id']}"
-            except json.JSONDecodeError:
-                # If it's not valid JSON, use it as is
-                title = f"Poll: {questions[:30]}..."
-        else:
-            # If it's neither a list nor a string, use a generic title
-            title = f"Poll {poll['id']}"
-        poll_options[poll['id']] = title
+    # Create a dictionary of poll options
+    poll_options = {poll['id']: f"Poll {poll['id']}" for poll in all_polls.data}
 
-    current_poll_id = st.session_state.get('current_poll_id') or all_polls.data[0]['id']
-
+    # Let admin choose which poll to see
     selected_poll_id = st.selectbox(
         "Select a poll to view results",
         options=list(poll_options.keys()),
-        format_func=lambda x: poll_options[x],
-        index=list(poll_options.keys()).index(current_poll_id) if current_poll_id in poll_options else 0
+        format_func=lambda x: poll_options[x]
     )
 
+    # Fetch the selected poll data
     poll_data = supabase.table("polls").select("*").eq("id", selected_poll_id).execute()
-    all_responses = supabase.table("responses").select("*").eq("poll_id", selected_poll_id).execute()
-
+    
     if not poll_data.data:
         st.warning("No poll found with this ID.")
         return
 
     poll = poll_data.data[0]
     questions = poll["questions"]
-    # Check if questions is already a list
+
+    # Ensure questions is a list
     if isinstance(questions, str):
         try:
             questions = json.loads(questions)
         except json.JSONDecodeError:
-            # If it's not valid JSON, split it into a list
             questions = questions.split('\n')
     elif not isinstance(questions, list):
         st.warning("Invalid question format in the database.")
         return
 
-    responses = all_responses.data
+    # Let admin choose which questions to visualize
+    selected_questions = st.multiselect(
+        "Select questions to visualize",
+        options=questions,
+        default=questions[:1]  # Default to first question
+    )
 
+    # Let admin choose the type of visualization
+    visual_type = st.selectbox(
+        "Select visualization type",
+        options=["Bar Chart", "Pie Chart", "Scatter Plot"]
+    )
+
+    # Fetch responses for the selected poll
+    responses = supabase.table("responses").select("*").eq("poll_id", selected_poll_id).execute()
+
+    if not responses.data:
+        st.warning("No responses available for this poll.")
+        return
+
+    # Process and visualize the data
+    for question in selected_questions:
+        st.subheader(question)
+        
+        # Collect answers for this question
+        question_index = questions.index(question)
+        answers = [response['responses'][question_index] for response in responses.data if question_index < len(response['responses'])]
+        
+        # Count occurrences of each answer
+        answer_counts = pd.Series(answers).value_counts()
+
+        if visual_type == "Bar Chart":
+            fig = px.bar(x=answer_counts.index, y=answer_counts.values, labels={'x': 'Answer', 'y': 'Count'})
+        elif visual_type == "Pie Chart":
+            fig = px.pie(values=answer_counts.values, names=answer_counts.index)
+        elif visual_type == "Scatter Plot":
+            # For scatter plot, we'll use index as x and count as y
+            fig = px.scatter(x=range(len(answer_counts)), y=answer_counts.values, text=answer_counts.index)
+            fig.update_traces(textposition='top center')
+
+        st.plotly_chart(fig)
+
+    # Display poll details
     st.write(f"Poll ID: {selected_poll_id}")
-    st.write(f"Poll Title: {poll_options[selected_poll_id]}")
     st.write(f"Poll created at: {poll.get('created_at', 'Not available')}")
     st.write(f"Last updated at: {poll.get('updated_at', 'Not available')}")
     st.write(f"Poll status: {'Active' if poll['active'] else 'Inactive'}")
+    st.write(f"Total responses: {len(responses.data)}")
 
-    if not questions:
-        st.warning("No questions available for this poll.")
-    elif not responses:
-        st.warning("No responses available for this poll.")
-    else:
-        for i, question in enumerate(questions, 1):
-            st.write(f"Question {i}: {question}")
-            st.write(f"\nTotal Responses: {len(responses)}")
-        
-        selected_questions = st.multiselect("Select questions to visualize", questions, default=questions[0])
-        
-        visual_type = st.selectbox("Select visualization type", ["Bar Chart", "Pie Chart", "Scatter Plot"])
-        
-        if selected_questions:
-            for question in selected_questions:
-                q_index = questions.index(question)
-                
-                answer_counts = {}
-                for response in responses:
-                    answer = response["responses"][q_index]
-                    if isinstance(answer, list):
-                        answer = ', '.join(answer)
-                    elif isinstance(answer, dict) and 'filename' in answer:
-                        answer = f"File: {answer['filename']}"
-                    answer_counts[str(answer)] = answer_counts.get(str(answer), 0) + 1
-                
-                df = pd.DataFrame(list(answer_counts.items()), columns=['Answer', 'Count'])
-                
-                st.write(f"\nQuestion: {question}")
-                if visual_type == "Bar Chart":
-                    fig = px.bar(df, x='Answer', y='Count', title=f"Responses for: {question}")
-                elif visual_type == "Pie Chart":
-                    fig = px.pie(df, values='Count', names='Answer', title=f"Responses for: {question}")
-                elif visual_type == "Scatter Plot":
-                    fig = px.scatter(df, x='Answer', y='Count', size='Count', title=f"Responses for: {question}")
-                
-                st.plotly_chart(fig)
-        
-        if len(selected_questions) > 1:
-            st.write("\nComparison of Selected Questions")
-            comparison_data = []
-            for question in selected_questions:
-                q_index = questions.index(question)
-                for response in responses:
-                    answer = response["responses"][q_index]
-                    if isinstance(answer, list):
-                        answer = ', '.join(answer)
-                    elif isinstance(answer, dict) and 'filename' in answer:
-                        answer = f"File: {answer['filename']}"
-                    comparison_data.append({'Question': question, 'Answer': str(answer)})
-            
-            df_comparison = pd.DataFrame(comparison_data)
-            
-            if visual_type == "Bar Chart":
-                fig = px.bar(df_comparison, x='Question', color='Answer', title="Comparison of Responses")
-            elif visual_type == "Pie Chart":
-                fig = px.sunburst(df_comparison, path=['Question', 'Answer'], title="Comparison of Responses")
-            elif visual_type == "Scatter Plot":
-                fig = px.scatter(df_comparison, x='Question', color='Answer', title="Comparison of Responses")
-            
-            st.plotly_chart(fig)
-            
-            # Comparison of multiple questions
-            if len(selected_questions) > 1:
-                st.write("\nComparison of Selected Questions")
-                comparison_data = []
-                for question in selected_questions:
-                    q_index = questions.index(question)
-                    for response in responses:
-                        answer = response["responses"][q_index]
-                        if isinstance(answer, list):
-                            answer = ', '.join(answer)
-                        elif isinstance(answer, dict) and 'filename' in answer:
-                            answer = f"File: {answer['filename']}"
-                        comparison_data.append({'Question': question, 'Answer': str(answer)})
-                
-                df_comparison = pd.DataFrame(comparison_data)
-                
-                if visual_type == "Bar Chart":
-                    fig = px.bar(df_comparison, x='Question', color='Answer', title="Comparison of Responses")
-                elif visual_type == "Pie Chart":
-                    fig = px.sunburst(df_comparison, path=['Question', 'Answer'], title="Comparison of Responses")
-                elif visual_type == "Scatter Plot":
-                    fig = px.scatter(df_comparison, x='Question', color='Answer', title="Comparison of Responses")
-                
-                st.plotly_chart(fig)
 
 def create_zip_of_uploaded_files(poll_id):
     # Get all responses for this poll
