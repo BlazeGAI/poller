@@ -385,6 +385,7 @@ def main():
     st.sidebar.markdown("Poller+")
     st.sidebar.markdown("Polling and information gathering for Tiffin University research. Private and secure.")
 
+    # Check if the user is already logged in
     if check_user_session():
         load_current_poll()
         page = st.sidebar.selectbox("Select a page", ["Admin", "Poll", "Results"])
@@ -395,20 +396,34 @@ def main():
         page = "Login"
 
     if page == "Login":
-        st.title("Admin Login")
-        email = st.text_input("Email")
-        password = st.text_input("Password", type="password")
-        login_option = st.radio("Choose an option", ["Login", "Register"])
+        st.title("Admin Login / Register")
 
-        if login_option == "Login":
+        # Create Tabs for Login and Registration
+        tab1, tab2 = st.tabs(["Login", "Register"])
+
+        # Login Tab
+        with tab1:
+            st.header("Login")
+            email = st.text_input("Email")
+            password = st.text_input("Password", type="password")
             if st.button("Login"):
                 if login_user(email, password):
                     st.success("Login successful!")
                     st.rerun()
-        elif login_option == "Register":
+                else:
+                    st.error("Login failed. Please check your credentials or contact support.")
+
+        # Register Tab
+        with tab2:
+            st.header("Register")
+            reg_email = st.text_input("Register Email")
+            reg_password = st.text_input("Register Password", type="password")
             if st.button("Register"):
-                if register_user(email, password):
+                if register_user(reg_email, reg_password):
                     st.success("Registration successful! Please log in.")
+                else:
+                    st.error("Registration failed. Please try again or contact support.")
+
     elif page == "Admin":
         admin_page()
     elif page == "Poll":
@@ -418,6 +433,29 @@ def main():
 
     if st.session_state.current_poll_id:
         st.sidebar.write(f"Current Poll ID: {st.session_state.current_poll_id}")
+
+# Improved login function with detailed error logging
+def login_user(email, password):
+    try:
+        user = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        st.session_state.user = user
+        st.session_state.user_id = user.user.id
+        return True
+    except Exception as e:
+        st.error(f"Login failed: {str(e)}")  # More detailed error reporting
+        print(f"Login Error Details: {str(e)}")  # Debugging print
+        return False
+
+# Registration function
+def register_user(email, password):
+    try:
+        user = supabase.auth.sign_up({"email": email, "password": password})
+        st.success("Registration successful! Please log in.")
+        return True
+    except Exception as e:
+        st.error(f"Registration failed: {str(e)}")
+        print(f"Registration Error Details: {str(e)}")  # Debugging print
+        return False
 
 if __name__ == "__main__":
     main()
