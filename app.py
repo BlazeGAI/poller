@@ -391,12 +391,13 @@ def main():
     st.sidebar.markdown("Polling and information gathering for Tiffin University research. Private and secure.")
 
     # Check if the user is already logged in
-    if check_user_session():
+    if check_user_session():  # Check if session state contains the logged-in user
         load_current_poll()
-        page = st.sidebar.selectbox("Select a page", ["Admin", "Poll", "Results"])
+        # Automatically switch to the Admin page if the user is logged in
+        page = st.sidebar.selectbox("Select a page", ["Admin", "Poll", "Results"], index=0)
         if st.sidebar.button("Logout"):
             logout_user()
-            st.rerun()
+            st.experimental_rerun()  # Rerun the app after logout
     else:
         page = "Login"
 
@@ -413,8 +414,7 @@ def main():
             password = st.text_input("Password", type="password")
             if st.button("Login"):
                 if login_user(email, password):
-                    st.success("Login successful!")
-                    st.rerun()
+                    st.experimental_rerun()  # Rerun the app after login
                 else:
                     st.error("Login failed. Please check your credentials or contact support.")
 
@@ -436,7 +436,7 @@ def main():
     elif page == "Results":
         results_page()
 
-    if st.session_state.current_poll_id:
+    if st.session_state.get('current_poll_id'):
         st.sidebar.write(f"Current Poll ID: {st.session_state.current_poll_id}")
 
 # Improved login function with detailed error logging
