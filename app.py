@@ -75,7 +75,6 @@ def login_user(email, password):
         st.session_state.user = user
         st.session_state.user_id = user.user.id
         st.success("Login successful!")
-        st.experimental_rerun()  # This will rerun the app after a successful login
         return True
     except Exception as e:
         st.error(f"Login failed: {str(e)}")
@@ -391,7 +390,7 @@ def main():
     st.sidebar.markdown("Polling and information gathering for Tiffin University research. Private and secure.")
 
     # Check if the user is already logged in
-    if check_user_session():  # Check if session state contains the logged-in user
+    if check_user_session():
         load_current_poll()
         # Automatically switch to the Admin page if the user is logged in
         page = st.sidebar.selectbox("Select a page", ["Admin", "Poll", "Results"], index=0)
@@ -413,10 +412,9 @@ def main():
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
             if st.button("Login"):
-                if login_user(email, password):
-                    st.experimental_rerun()  # Rerun the app after login
-                else:
-                    st.error("Login failed. Please check your credentials or contact support.")
+                login_successful = login_user(email, password)
+                if login_successful:
+                    st.experimental_rerun()  # Only rerun if login was successful
 
         # Register Tab
         with tab2:
@@ -426,8 +424,6 @@ def main():
             if st.button("Register"):
                 if register_user(reg_email, reg_password):
                     st.success("Registration successful! Please log in.")
-                else:
-                    st.error("Registration failed. Please try again or contact support.")
 
     elif page == "Admin":
         admin_page()
