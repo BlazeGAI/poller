@@ -59,6 +59,15 @@ def check_user_session():
             st.session_state.user = None
     return False
 
+def register_user(email, password):
+    try:
+        user = supabase.auth.sign_up({"email": email, "password": password})
+        st.success("Registration successful! Please log in.")
+        return True
+    except Exception as e:
+        st.error(f"Registration failed: {str(e)}")
+        return False
+
 def login_user(email, password):
     try:
         user = supabase.auth.sign_in_with_password({"email": email, "password": password})
@@ -389,11 +398,17 @@ def main():
         st.title("Admin Login")
         email = st.text_input("Email")
         password = st.text_input("Password", type="password")
-        if st.button("Login"):
-            if login_user(email, password):
-                st.success("Login successful!")
-                st.rerun()
+        login_option = st.radio("Choose an option", ["Login", "Register"])
 
+        if login_option == "Login":
+            if st.button("Login"):
+                if login_user(email, password):
+                    st.success("Login successful!")
+                    st.rerun()
+        elif login_option == "Register":
+            if st.button("Register"):
+                if register_user(email, password):
+                    st.success("Registration successful! Please log in.")
     elif page == "Admin":
         admin_page()
     elif page == "Poll":
