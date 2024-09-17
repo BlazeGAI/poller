@@ -390,19 +390,30 @@ def main():
     st.sidebar.markdown("Poller+")
     st.sidebar.markdown("Polling and information gathering for Tiffin University research. Private and secure.")
 
+    # Get the current query parameters to control the page
+    query_params = st.experimental_get_query_params()
+    current_page = query_params.get("page", ["Login"])[0]  # Default page is "Login"
+    
     # Check if the user is already logged in via session state
     if 'logged_in' in st.session_state and st.session_state.logged_in:
         load_current_poll()
         # Automatically switch to the Admin page if the user is logged in
+        current_page = query_params.get("page", ["Admin"])[0]  # Default to "Admin" if logged in
         page = st.sidebar.selectbox("Select a page", ["Admin", "Poll", "Results"], index=0)
+        
+        # Update the query parameters to reflect the selected page
+        st.experimental_set_query_params(page=page)
+
         if st.sidebar.button("Logout"):
             logout_user()
             st.session_state.logged_in = False  # Set login flag to False
-            st.experimental_rerun()  # If you don't have rerun, the page will reload itself on the next event
-    else:
-        page = "Login"
+            st.experimental_set_query_params(page="Login")  # Redirect to login page
 
-    if page == "Login":
+    else:
+        current_page = "Login"  # Default to Login page if not logged in
+
+    # Render the current page based on the query parameter
+    if current_page == "Login":
         st.title("Admin Login / Register")
 
         # Create Tabs for Login and Registration
@@ -417,7 +428,7 @@ def main():
                 login_successful = login_user(email, password)
                 if login_successful:
                     st.session_state.logged_in = True  # Set login state
-                    st.experimental_rerun()  # Rerun on login success to trigger the app to show the admin page
+                    st.experimental_set_query_params(page="Admin")  # Redirect to the Admin page
 
         # Register Tab
         with tab2:
@@ -428,11 +439,11 @@ def main():
                 if register_user(reg_email, reg_password):
                     st.success("Registration successful! Please log in.")
 
-    elif page == "Admin":
+    elif current_page == "Admin":
         admin_page()
-    elif page == "Poll":
+    elif current_page == "Poll":
         poll_page()
-    elif page == "Results":
+    elif current_page == "Results":
         results_page()
 
     if st.session_state.get('current_poll_id'):
