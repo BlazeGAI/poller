@@ -74,6 +74,7 @@ def login_user(email, password):
         user = supabase.auth.sign_in_with_password({"email": email, "password": password})
         st.session_state.user = user
         st.session_state.user_id = user.user.id
+        st.session_state.logged_in = True  # Set a flag for login
         st.success("Login successful!")
         return True
     except Exception as e:
@@ -389,14 +390,15 @@ def main():
     st.sidebar.markdown("Poller+")
     st.sidebar.markdown("Polling and information gathering for Tiffin University research. Private and secure.")
 
-    # Check if the user is already logged in
-    if check_user_session():
+    # Check if the user is already logged in via session state
+    if 'logged_in' in st.session_state and st.session_state.logged_in:
         load_current_poll()
         # Automatically switch to the Admin page if the user is logged in
         page = st.sidebar.selectbox("Select a page", ["Admin", "Poll", "Results"], index=0)
         if st.sidebar.button("Logout"):
             logout_user()
-            st.experimental_rerun()  # Rerun the app after logout
+            st.session_state.logged_in = False  # Set login flag to False
+            st.experimental_rerun()  # If you don't have rerun, the page will reload itself on the next event
     else:
         page = "Login"
 
@@ -414,7 +416,8 @@ def main():
             if st.button("Login"):
                 login_successful = login_user(email, password)
                 if login_successful:
-                    st.experimental_rerun()  # Only rerun if login was successful
+                    st.session_state.logged_in = True  # Set login state
+                    st.experimental_rerun()  # Rerun on login success to trigger the app to show the admin page
 
         # Register Tab
         with tab2:
@@ -434,29 +437,6 @@ def main():
 
     if st.session_state.get('current_poll_id'):
         st.sidebar.write(f"Current Poll ID: {st.session_state.current_poll_id}")
-
-# Improved login function with detailed error logging
-def login_user(email, password):
-    try:
-        user = supabase.auth.sign_in_with_password({"email": email, "password": password})
-        st.session_state.user = user
-        st.session_state.user_id = user.user.id
-        return True
-    except Exception as e:
-        st.error(f"Login failed: {str(e)}")  # More detailed error reporting
-        print(f"Login Error Details: {str(e)}")  # Debugging print
-        return False
-
-# Registration function
-def register_user(email, password):
-    try:
-        user = supabase.auth.sign_up({"email": email, "password": password})
-        st.success("Registration successful! Please log in.")
-        return True
-    except Exception as e:
-        st.error(f"Registration failed: {str(e)}")
-        print(f"Registration Error Details: {str(e)}")  # Debugging print
-        return False
 
 if __name__ == "__main__":
     main()
