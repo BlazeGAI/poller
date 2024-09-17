@@ -247,18 +247,6 @@ def admin_page():
                 excel_file = BytesIO()
                 with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
                     df.to_excel(writer, index=False, sheet_name='Responses')
-                    worksheet = writer.sheets['Responses']
-                    for column in worksheet.columns:
-                        max_length = 0
-                        column = [cell for cell in column]
-                        for cell in column:
-                            try:
-                                if len(str(cell.value)) > max_length:
-                                    max_length = len(cell.value)
-                            except:
-                                pass
-                        adjusted_width = (max_length + 2)
-                        worksheet.column_dimensions[column[0].column_letter].width = adjusted_width
                 excel_file.seek(0)  # Reset the stream position to the beginning
                 
                 st.download_button(
@@ -289,12 +277,9 @@ def admin_page():
                     # Clean up: remove the temporary zip file
                     os.remove(zip_filename)
 
-        # Debug information
-        # Add a toggle for debug messages at the bottom of the page
-        st.write("---")  # Add a separator line
-        show_debug = st.toggle("Show Debug Messages", value=False)
-
-        if show_debug:
+        # Debug information (show based on the toggle state)
+        if st.session_state['show_debug']:
+            st.write("---")
             st.write("Debug Information:")
             st.write(f"Debug: Current Poll ID: {poll_id}")
             if 'responses' in locals():
@@ -333,6 +318,11 @@ def poll_page():
         return
 
     questions = poll_data.data[0]["questions"]
+
+    # Display debug messages if the toggle is on
+    if st.session_state['show_debug']:
+        st.write(f"Debug: Poll ID: {poll_id}")
+        st.write(f"Debug: Questions: {questions}")
 
     if not questions:
         st.warning("No questions available for this poll.")
@@ -615,17 +605,22 @@ def create_zip_of_uploaded_files(poll_id):
 # Main app
 def main():
     query_params = st.experimental_get_query_params()
-    
+
     # Add logo and description to the sidebar
     with st.sidebar:
         st.image("https://tuonlineresources.com/apps/poller/images/logo-256.png", use_column_width=True)
         st.markdown("Poller+")
         st.markdown("Polling and information gathering for Tiffin University research. Private and secure.")
-        
+
+        # Add a toggle for debug messages in the sidebar
+        if 'show_debug' not in st.session_state:
+            st.session_state['show_debug'] = False
+        st.session_state['show_debug'] = st.sidebar.checkbox("Show Debug Messages", value=st.session_state['show_debug'])
+
         # Display current poll ID if available
         if 'current_poll_id' in st.session_state:
             st.write(f"Current Poll ID: {st.session_state.current_poll_id}")
-        
+
         # Add logout button if user is logged in
         if 'user' in st.session_state and st.session_state.user:
             if st.button("Logout", key="sidebar_logout"):
