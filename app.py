@@ -75,10 +75,11 @@ def login_user(email, password):
         st.session_state.user = user
         st.session_state.user_id = user.user.id
         st.success("Login successful!")
+        st.experimental_rerun()  # This will rerun the app after a successful login
         return True
     except Exception as e:
-        st.error(f"Login failed: {str(e)}")  # Detailed error reporting
-        print(f"Login Error Details: {str(e)}")  # Debugging print
+        st.error(f"Login failed: {str(e)}")
+        print(f"Login Error Details: {str(e)}")
         return False
 
 def logout_user():
