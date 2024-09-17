@@ -66,6 +66,7 @@ def register_user(email, password):
         return True
     except Exception as e:
         st.error(f"Registration failed: {str(e)}")
+        print(f"Registration Error Details: {str(e)}")  # Debugging print
         return False
 
 def login_user(email, password):
@@ -73,9 +74,11 @@ def login_user(email, password):
         user = supabase.auth.sign_in_with_password({"email": email, "password": password})
         st.session_state.user = user
         st.session_state.user_id = user.user.id
+        st.success("Login successful!")
         return True
     except Exception as e:
-        st.error(f"Login failed: {str(e)}")
+        st.error(f"Login failed: {str(e)}")  # Detailed error reporting
+        print(f"Login Error Details: {str(e)}")  # Debugging print
         return False
 
 def logout_user():
@@ -83,6 +86,7 @@ def logout_user():
     st.session_state.user = None
     st.session_state.current_poll_id = None
     st.session_state.current_poll_data = None
+    st.session_state.clear()
     st.success("Logged out successfully!")
 
 def create_new_poll():
