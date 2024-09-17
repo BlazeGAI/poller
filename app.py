@@ -320,7 +320,7 @@ def poll_page():
     questions = poll_data.data[0]["questions"]
 
     # Display debug messages if the toggle is on
-    if st.session_state['show_debug']:
+    if st.session_state.get('show_debug', False):
         st.write(f"Debug: Poll ID: {poll_id}")
         st.write(f"Debug: Questions: {questions}")
 
@@ -341,7 +341,7 @@ def poll_page():
             except ValueError:
                 st.error(f"Invalid question format: {question}")
                 continue
-        
+
             if q_type == "text":
                 answer = st.text_input(q_text, key=f"q_{i}")
             elif q_type == "textarea":
@@ -371,7 +371,6 @@ def poll_page():
                 uploaded_file = st.file_uploader(q_text, key=f"q_{i}")
                 if uploaded_file is not None:
                     st.write(f"File selected: {uploaded_file.name}")
-                    # Store only the necessary file information
                     answer = {
                         "filename": uploaded_file.name,
                         "content_type": uploaded_file.type,
@@ -383,22 +382,18 @@ def poll_page():
             else:
                 st.error(f"Unknown question type: {q_type}")
                 continue
-        
+
             user_responses.append(answer)
 
         if st.button("Submit Responses"):
-            st.write("Debug: Submit button clicked")
             if not name or not email:
                 st.error("Please enter your name and email.")
                 return
-        
+
             try:
-                st.write("Debug: Starting submission process")
-                
                 # Process file uploads
                 for i, response in enumerate(user_responses):
                     if isinstance(response, dict) and 'uploaded' in response and not response['uploaded']:
-                        st.write(f"Debug: Processing file upload for question {i+1}")
                         
                         # Get the file uploader object
                         file_uploader_key = f"q_{i}"
@@ -438,25 +433,31 @@ def poll_page():
                                 "uploaded": False
                             }
                 
-                # Prepare response data
+               # Prepare response data
                 response_data = {
                     "poll_id": poll_id,
                     "name": name,
                     "email": email,
                     "responses": user_responses
                 }
-                st.write("Debug: Response data prepared", response_data)
-        
+
                 # Insert the poll responses
-                st.write("Debug: Attempting to insert data into Supabase")
                 result = supabase.table("responses").insert(response_data).execute()
-                st.write("Debug: Supabase insert result", result)
-        
                 st.success("Thank you for your responses!")
             except Exception as e:
                 st.error(f"Error submitting responses: {str(e)}")
-                st.write("Debug: Full error information", e)
-                st.write("Debug: Error type", type(e).__name__)
+
+    # Debugging messages related to submission or poll data fetching
+    if st.session_state.get('show_debug', False):
+        st.write("---")
+        st.write("Debug Information:")
+        st.write(f"Debug: Poll ID: {poll_id}")
+        st.write(f"Debug: User Responses: {user_responses}")
+        try:
+            responses_data = supabase.table("responses").select("*").eq("poll_id", poll_id).execute()
+            st.write("Debug: Raw Supabase response", responses_data)
+        except Exception as e:
+            st.write(f"Debug: Error retrieving responses: {str(e)}")
 
 def results_page():
     st.title("Poll Results")
